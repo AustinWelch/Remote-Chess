@@ -1,0 +1,131 @@
+BSP Notes:
+
+	Raz's Drivers
+
+	BSP:
+		Init Entire Board:
+			BSP_InitBoard(): calls all subsequent initialization functions
+
+	ClockSys:
+		Init: ClockSys_SetMaxFreq() (Sets MCLK to 48MHz, HSMCLK to 24MHz, and SMCLK to 12 MHz)
+		Read Data: ClockSys_GetSysFreq() (Gets MCLK Speed in MHz) 
+
+		Problems/Concerns: None at the momemnt
+		Future Improvements: Configurability? (Difficult when trying to sync using peripherals)
+
+	BackChannelUART
+		Init: BackChannelInit(): Set's up backchannel UART to communicate at 115200 Baud with 1 Start bit, 8 data bis, and 1 Stop bit
+		
+		Print Text: BackChannelPrint(string, textStyle)
+			Prints a string in json format with specfic textStyle enumeration
+
+		BackChannelPrintIntVariable:
+			Prints an integer variable name and value in json format
+
+		BackChannelEventTrigger:
+			Prints an event trigger in JSON format
+
+	TI's Drivers
+
+	Opt3001: (Light Sensor) 
+		Init: [initI2C must be called beforehand] sensorOpt3001Enable(true)
+		Read Data: sensorOpt3001Read(uint16_t *rawData)
+
+		Problems/Concerns: Does not use interrupt to signal processor that data is ready. Simply returns false if failed. Wasted CPU time
+		Future Improvements: Enable Port to receive intrrupts from sensor. Big CPU saver
+
+	Tmp007:
+		Init: [initI2C must be called beforehand] sensorTmp007Enable(true)
+		Read Data: sensorTmp007Read(uint16_t *rawTemp, uint16_t *rawObjTemp)
+
+		Problems/Concerns: Does not use interrupt to signal processor that data is ready. Simply returns false if failed. Wasted CPU time
+		Future Improvements: Enable Port to receive intrrupts from sensor. Big CPU saver
+
+	Bosch's Drivers
+
+	Bmi160:
+		A LOT of things going on here. BoschSensorTec has some SUPER configurable code (resulting in tens of thousands of lines of code though -_-)
+
+		There are 2 libraries: bmi160 and bmi160_support
+			bmi160 is the full api containing every single possible function for messing with this thing. 
+			bmi160_support contains example functions, public data structures, and compound api calls.
+
+		Main Struct: bmi160_t - Holds valuable information such as chip id, device address, WriteFunctionPTR, ReadFunctionPTR, BurstWriteFunctionPtr, DelayMSFunction
+
+		To Initialize the bmi160, you must first initialize the bmi160_t struct with all fields except chip id.
+		Then Call bmi160_init which will test out the reading and writing as well as get the chip id and link the struct pointer into the library.
+
+		*** ALL OF THIS CAN BE ACCOMPLISHED BY CALLING bmi160_initialize_sensor() ****
+
+		After initializing, we need to configure the BMI160 to work the way we want. The Support Library provides a configuration function for setting the running mode bmi160_config_running_mode
+		The following modes are possible:
+				*      	    Description                |  value
+ 				*      --------------------------------|----------
+ 				*  	STANDARD_UI_9DOF_FIFO          |   0
+ 				*	STANDARD_UI_IMU_FIFO           |   1
+				*	STANDARD_UI_IMU                |   2
+ 				*	STANDARD_UI_ADVANCEPOWERSAVE   |   3
+ 				*	ACCEL_PEDOMETER                |   4
+ 				*	APPLICATION_HEAD_TRACKING      |   5
+ 				*	APPLICATION_NAVIGATION         |   6
+ 				*	APPLICATION_REMOTE_CONTROL     |   7
+ 				*	APPLICATION_INDOOR_NAVIGATION  |   8
+		
+		
+		*** NOTE Initialize Sensor sets it to 0 ***
+
+		
+		Reading Accelerometer Data:	You must first have a "struct bmi160_accel_t" type variable. 
+		
+		Call bmi160_read_accel_xyz(&accelData) where accelData is the address of your variable.
+		*You can also get individual x,y,z values by calling bmi160_read_accel_[x,y,z] pass a 16 bit signed integer pointer
+
+		Reading Gyro Data:		You must first have a "struct bmi160_gyro_t" type 
+
+		Call bmi160_read_gyro_xyz(&gyroData) where gyroData is the address of your variable.
+		*You can also get individual x,y,z values by calling bmi160_read_gyro_[x,y,z] pass a 16 bit signed integer pointer
+
+		Reading Magnetometer Data:	You must first have a "struct bmi160_mag_t" type
+
+		Call bmi160_read_mag_xyz(&magData, 0) where magData is the address of your variable and the 0 is a select for using the bmm150 magnetometer.
+		* You can also get individual x,y,z values by calling bmi_read_mag_[x,y,z] pass a 16 bit signed integer pointer
+
+		Problems/Concerns: A LOT of code! Interrupts also don't seem to be used
+		Future Improvements: Cut code that is not needed. Enable interrupts to save CPU time
+
+	Bme280:
+		Also many things going on like the bmi160. Does NOT provide a support initialize code like the bmi160, but I made one in the support file
+
+		There are 2 libraries: bme280 and bme280_support
+			bmi280 is the full api containing every single possible function for messing with this thing. 
+			bmi280_support contains example functions, public data structures, and compound api calls.
+
+		Main Struct: bme280_t - Holds valuable information such as chip id, device address, WriteFunctionPTR, ReadFunctionPTR, BurstWriteFunctionPTR, DelayMSFunction, oversampling configurations
+
+		To Initialize the bme280, you must first initialize the bme_t struct with all fields except hip id and link the struct pointer into the library.
+
+		After primary initialization, we must set the power mode to normal (bme280_set_power_mode(BME280_NORMAL_MODE))
+		Then we must set the oversampling rates for pressure, humidity, and temperature sensors		
+				bme280_set_oversamp_pressure(BME280_OVERSAMP_2X)
+				bme280_set_oversamp_humidity(BME280_OVERSAMP_1X)
+				bme280_set_oversamp_temperature(BME280_OVERSAMP_4X)
+
+		Finally, we set the standby time (the time that the sensor is in standby until it makes another reading) (bme280_set_standby_durn(BME280_STANDBY_TIME_1_MS))
+
+		*** ALL OF THIS CAN BE ACCOMPLISHED BY CALLING bmi280_initialize_sensor() ****
+
+		Reading Pressure:
+
+		Call bme280_read_uncomp_pressure(&pressureVal) where pressureVal is an integer pointer to hold the resultant value. 
+		You can convert the pressure to Pascals by calling bme280_compensate_pressure_int32()
+
+		Reading Temperature:
+
+		Call bme280_read_uncomp_temperature(&tempVal) where tempVal is an integer pointer to hold the resultant value. 
+		You can convert the temperature to Celicius*100 by calling bme280_compensate_temperature_int32()
+
+	
+		
+
+
+
