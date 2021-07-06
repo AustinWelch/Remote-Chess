@@ -9,14 +9,20 @@ try:
     firebase_admin.initialize_app(cred)
     db = firestore.client()
 except:
-    xyz = 0 #Do nothing
+    pass
 
 app = Flask(__name__)
 
 
 @app.route('/')
 def home_page():
-    return 'Server for Online Chess :)'
+    return 'Server for Remote Chess :)'
+
+
+@app.route('/ping')
+def ping():
+    return '<span style="white-space: pre-wrap">pong\n</span>'
+
 
 @app.route('/user/<boardid>')
 def user_page(boardid):
@@ -31,6 +37,7 @@ def user_page(boardid):
         userInfo = db.collection('chess').document('users').collection('users').document(boardid).get().to_dict()
         return '<span style="white-space: pre-wrap">' + 'Friends:\n' + str(userInfo['friends']) +  '\nGames:\n' + str(userInfo['ongoing_games']) +'\n</span>'
 
+
 @app.route('/user/<boardid>/newgame')
 def create_new_game(boardid):
     board = chess.Board()
@@ -41,13 +48,14 @@ def create_new_game(boardid):
         , 'player1_id' : int(boardid)
         , 'player2_id' : 0
         , 'players_joined' : 1
-        , 'whose_turn' : int(boardid)
+        , 'players_turn' : int(boardid)
         , 'movecount' : 0
     })
     db.collection('chess').document('users').collection('users').document(boardid).update({
         'ongoing_games' : firestore.ArrayUnion([str(res[1].id)])
     })
     return '<span style="white-space: pre-wrap">' + 'New game created!\nId: ' + str(res[1].id) + '\n</span>'
+
 
 @app.route('/user/<boardid>/joingame/<game_code>')
 def join_game(boardid, game_code):
@@ -65,6 +73,7 @@ def join_game(boardid, game_code):
     else:
         return '<span style="white-space: pre-wrap">' + 'Game is full!' + '\n</span>'
 
+
 @app.route('/user/<boardid>/addfriend/<friendid>/<alias>')
 def add_friend(boardid, friendid, alias):
     try:
@@ -77,10 +86,12 @@ def add_friend(boardid, friendid, alias):
     except:
         return '<span style="white-space: pre-wrap">User with ID: ' + friendid + 'was not found.\n</span>'
 
+
 @app.route('/game/<game_code>')
 def get_game(game_code):
     game = db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()
-    return '<span style="white-space: pre-wrap">' + 'Total Moves: ' + str(game['movecount']) + '\nPlayers in Game: P1: ' + str(game['player1_id']) + '   P2: ' + str(game['player2_id']) + '\nTurn: ' + str(game['whose_turn']) + '\nLast Move: ' + str(game['lastmove']) +'\nBoard:\n' + str(game['chessboard']) + '</span>'
+    return '<span style="white-space: pre-wrap">' + 'Total Moves: ' + str(game['movecount']) + '\nPlayers in Game: P1: ' + str(game['player1_id']) + '   P2: ' + str(game['player2_id']) + '\nTurn: ' + str(game['players_turn']) + '\nLast Move: ' + str(game['lastmove']) +'\nBoard:\n' + str(game['chessboard']) + '</span>'
+
 
 @app.route('/game/<game_code>/delete')
 def delete_board(game_code):
@@ -97,23 +108,76 @@ def delete_board(game_code):
     game_ref.delete()
     return '<span style="white-space: pre-wrap">' + 'Deleted Game ' + game_code + '\n</span>'
 
+
 @app.route('/game/<game_code>/getboard')
 def get_board(game_code):
     return '<span style="white-space: pre-wrap">' + db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()['chessboard'] + '</span>'
+
+
+@app.route('/game/<game_code>/getlegalmoves')
+def get_all_moves(game_code):
+
+    def get_piece_number(pos):
+        return (ord(pos[0]) - 97) + ((ord(pos[1]) - 49) * 8)
+
+    def get_piece_type(board, pos):
+        piece_number = get_piece_number(pos)
+        piece_type = str(board.piece_at(piece_number)).upper()
+                    
+        if piece_type == 'P':
+            piece_type = 'Pawn'
+        elif piece_type == 'R':
+            piece_type = 'Rook'
+        elif piece_type == 'N':
+            piece_type = 'Knight'
+        elif piece_type == 'B':
+            piece_type = 'Bishop'
+        elif piece_type == 'Q':
+            piece_type = 'Queen'
+        elif piece_type == 'K':
+            piece_type = 'King'
+
+        return piece_type
+
+    board = chess.Board(db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()['fen'])
+    
+    all_legal_moves = list(board.legal_moves)
+    for i in range(len(all_legal_moves)):
+        all_legal_moves[i] = str(all_legal_moves[i])
+
+    legal_moves = {}
+    for i in range(len(all_legal_moves)):
+        if(board.is_capture(chess.Move(get_piece_number(all_legal_moves[i][:2]), get_piece_number(all_legal_moves[i][2:])))):
+            all_legal_moves[i] = all_legal_moves[i] + 'A'
+        if(board.is_en_passant(chess.Move(get_piece_number(all_legal_moves[i][:2]), get_piece_number(all_legal_moves[i][2:])))):
+            all_legal_moves[i] = all_legal_moves[i] + 'EP'
+        if(board.is_kingside_castling(chess.Move(get_piece_number(all_legal_moves[i][:2]), get_piece_number(all_legal_moves[i][2:])))):
+            all_legal_moves[i] = all_legal_moves[i] + 'KC'
+        if(board.is_queenside_castling(chess.Move(get_piece_number(all_legal_moves[i][:2]), get_piece_number(all_legal_moves[i][2:])))):
+            all_legal_moves[i] = all_legal_moves[i] + 'QC'
+
+        try:
+            legal_moves[all_legal_moves[i][:2]].append(all_legal_moves[i][2:])
+        except:
+            legal_moves[all_legal_moves[i][:2]] = [get_piece_type(board, all_legal_moves[i][:2]), all_legal_moves[i][2:]]
+
+    return '<span style="white-space: pre-wrap"> Legal moves:' + str(legal_moves) + '</span>'
+
     
 @app.route('/game/<game_code>/makemove/<int:userId>/<move>')
 def existing_game(game_code, userId, move):
     game = db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()
+ 
     board = chess.Board(game['fen'])
-    # if(game['whose_turn'] == userId):
+    # if(game['players_turn'] == userId):
     try:
         board.push_uci(move)
         game['movecount'] += 1
         
         if (game['player1_id'] == userId):
-            game['whose_turn'] = game['player2_id']
+            game['players_turn'] = game['player2_id']
         else:
-            game['whose_turn'] = game['player1_id']
+            game['players_turn'] = game['player1_id']
 
         game['lastmove'] = move
         game['chessboard'] = str(board)
