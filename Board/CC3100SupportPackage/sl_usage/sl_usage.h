@@ -6,6 +6,7 @@
 
 #include "simplelink.h"
 #include "sl_common.h"
+#include <stdbool.h>
 
 
 /* Application specific status/error codes */

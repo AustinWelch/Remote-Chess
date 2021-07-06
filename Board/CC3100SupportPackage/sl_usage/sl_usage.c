@@ -4,7 +4,9 @@
  * June 21, 2019
 */
 
-#include "sl_usage.h"
+#include <CC3100SupportPackage/sl_usage/sl_usage.h>
+
+bool open = false;
 
 void parseServerResponse(char* parsedResponse, char* keyword){
     char *pt = 0;
@@ -17,7 +19,7 @@ void parseServerResponse(char* parsedResponse, char* keyword){
 
     int i = 0;
     if(pt != 0){
-        pt += 10;
+        pt += strlen(keyword);
         while(*pt){
             parsedRecvBuff[i] = *pt;
             pt++; i++;
@@ -48,11 +50,13 @@ _i32 sendRequestToServer(char* request){
     if (SockID >= 0) {
         retVal = sl_Connect(SockID, (SlSockAddr_t *)&Addr, ASize);
 
+
         if ((SockID >= 0) && (retVal >= 0)) {
             strcpy(SendBuff, request);
             sl_Send(SockID, SendBuff, strlen(SendBuff), 0);   // Send the HTTP GET/POST
             sl_Recv(SockID, Recvbuff, MAX_RECV_BUFF_SIZE, 0); // Receive response
             sl_Close(SockID);
+
         }
         else
             return -1;
