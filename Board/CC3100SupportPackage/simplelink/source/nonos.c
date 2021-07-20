@@ -151,3 +151,4 @@ _SlNonOsRetVal_t _SlNonOsMainLoopTask(void)
 }
 
 #endif /*(SL_PLATFORM != SL_PLATFORM_NON_OS)*/
+
