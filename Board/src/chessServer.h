@@ -1,7 +1,8 @@
+#ifndef CHESSSERVER_H_
+#define CHESSSERVER_H_
+
 #include "wifi_usage.h"
 #include "BSP.h"
-#include "debug.h"
-#include "fpu.h"
 #include "rom.h"
 #include "sysctl.h"
 #include <stdio.h>
@@ -18,6 +19,7 @@
 #define INVALID_MOVE -4
 #define NOT_IN_GAME -5
 
+
 void chessServer_init(uint32_t conntype);
 int8_t chessServer_makeMove(char* move);
 int8_t chessServer_getLegalMoves(char* response);
@@ -31,3 +33,6 @@ int8_t chessServer_addFriend(char* response, uint16_t friendId);
 int8_t chessServer_getCurrentGame();
 int8_t chessServer_setName(char* response, char* newName);
 uint8_t buildAndSendReq(char *parsedResponse);
+
+
+#endif
