@@ -7,12 +7,11 @@
 #include "flat_unordered_set.h"
 #include "Move.h"
 #include <unordered_set>
-#include <map>
 #include <string>
 
 extern "C" {
-    #include "G8RTOS_Semaphores.h"
     #include "chessServer.h"
+    #include "G8RTOS_Semaphores.h"
 };
 
 namespace RemoteChess {
@@ -57,9 +56,9 @@ namespace RemoteChess {
         RemoteChess::optional<Move> lastRemoteMove{ Move(Cell(1, 7), Cell(2, 5)) };
         RemoteChess::optional<Move> lastLocalMove;
 
-        std::map<int, flat_vector<Cell, 32>> allLegalMoves;
-        std::map<int, flat_vector<Cell, 32>> allAttackingMoves;
-        std::map<int, std::string> pieceNames;
+        flat_vector<flat_vector<Cell, 32>, 32> allLegalMoves;
+        flat_vector<flat_vector<Cell, 8>, 32> allAttackingMoves;
+        flat_vector<std::string, 32> pieceNames;
 
 		public:
 
@@ -80,7 +79,7 @@ namespace RemoteChess {
         
         RemoteChess::flat_vector<Cell, 32> GetLegalMovesPiece(const Cell& origin);
         RemoteChess::flat_vector<Cell, 32> GetAttackingMovesPiece(const Cell& origin);
-        void GetLegalMovesAll(const Cell& origin) const;
+        void GetLegalMovesAll(const Cell& origin);
         std::string Board::GetPieceName(const Cell& cell) const;
 	};
 }
