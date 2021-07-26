@@ -145,5 +145,15 @@ namespace RemoteChess {
                 m_size--;
             }
         }
+
+        void erase_all() {
+            auto it = begin();
+
+            for (; it != end(); it++)
+                it->~T();
+
+            m_size = 0;
+        }
+
     };
 }
