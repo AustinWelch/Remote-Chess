@@ -220,10 +220,10 @@
 
 #define __SL__
 
-#ifdef    __cplusplus
-extern "C"
-{
-#endif
+//#ifdef    __cplusplus
+//extern "C"
+//{
+//#endif
 
 
 /*! \attention  Async event activation notes
@@ -358,9 +358,9 @@ typedef _u8   _SlArgSize_t;
 typedef _i16   _SlDataSize_t;
 typedef _i16   _SlReturnVal_t;
 
-#ifdef    __cplusplus
-}
-#endif /*  __cplusplus */
+//#ifdef    __cplusplus
+//}
+//#endif /*  __cplusplus */
 
 
 
@@ -586,9 +586,9 @@ extern void sl_HttpServerCallback(SlHttpServerEvent_t *pSlHttpServerEvent, SlHtt
 
  */
  
-#ifdef  __cplusplus
-}
-#endif /* __cplusplus */
+//#ifdef  __cplusplus
+//}
+//#endif /* __cplusplus */
 
 #endif    /*  __SIMPLELINK_H__ */
 

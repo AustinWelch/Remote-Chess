@@ -43,9 +43,9 @@
 // have a C binding.
 //
 //*****************************************************************************
-#ifdef __cplusplus
-extern "C" {
-#endif
+//#ifdef __cplusplus
+//extern "C" {
+//#endif
 
 /**/
 #define LOOP_FOREVER() \
@@ -162,8 +162,8 @@ typedef enum{
 #define IS_SMARTCONFIG_STOPPED(status_variable)   GET_STATUS_BIT(status_variable, \
                                                                STATUS_BIT_SMARTCONFIG_STOPPED)
 
-#ifdef __cplusplus
-}
-#endif /* __cplusplus */
+//#ifdef __cplusplus
+//}
+//#endif /* __cplusplus */
 
 #endif /*__SL_CONFIG_H__*/
