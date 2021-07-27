@@ -7,6 +7,7 @@ using namespace std;
 
 Board::Board(PlayerColor color) : fsm(color == PlayerColor::WHITE ? BoardState::AWAITING_LOCAL_MOVE : BoardState::AWAITING_REMOTE_MOVE_NOTICE) {
     chessServer_init(CLOSE_CONNECTION);
+    chessServer_getCurrentGame();
 }
 
 void Board::LiftPiece(const Cell& cell) {
@@ -94,14 +95,15 @@ std::string Board::GetPieceName(const Cell& cell) const {
 }
 
 void Board::GetLegalMovesAll() {
-//	allLegalMoves.erase_all();
-//	allAttackingMoves.erase_all();
-//	pieceNames.erase_all();
+	for(flat_vector<Cell, 32>& pieceMoves : allLegalMoves)
+		pieceMoves.erase_all();
+	for(flat_vector<Cell, 8>& pieceAttackingMoves : allAttackingMoves)
+		pieceAttackingMoves.erase_all();
 
 	char movesString[1024];
 
 	G8RTOS_StartCriticalSection();
-	chessServer_getLegalMoves(movesString);
+	chessServer_getLegalMoves(movesString); 
 	G8RTOS_EndCriticalSection();
 
 	printf(movesString);
