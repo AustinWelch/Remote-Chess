@@ -9,6 +9,7 @@ extern "C" {
 #include "Board.h"
 
 using namespace RemoteChess;
+using namespace std;
 
 RemoteChess::Board g_board(PlayerColor::WHITE);
 
@@ -80,20 +81,44 @@ void BoardLedUpdateThread() {
 	}
 }
 
+void test() {
+    while(true) {
+
+        g_board.GetLegalMovesAll();
+        int col, row;
+        while(true){
+            std::cout << "Enter col" << std::endl;
+            std::cin >> col;
+            std::cout << "Enter row" << std::endl;
+            std::cin >> row;
+
+            auto validMoves = g_board.GetLegalMovesPiece(Cell(col, row));
+            std::string name = g_board.GetPieceName(Cell(col, row));
+            cout << name << endl;
+
+            auto it = validMoves.begin();
+            for(; it != validMoves.end(); it++){
+                cout << "Col: " << char(it->file + 48) << " Row: " << char(it->rank + 48) << endl;
+            }
+        }
+    }
+}
+
 void main(void) {
 	BSP_InitBoard();
 
-	printf("Hello, world!\r\n");
+	test();
 
 	G8RTOS_Init();
 
 	// G8RTOS_AddThread(FlashThread, 4, "Flash");
-	G8RTOS_AddThread(MagnetThread, 2, "MagnetThread");
-	G8RTOS_AddThread(BoardLedUpdateThread, 4, "LedThread");
+	//G8RTOS_AddThread(MagnetThread, 2, "MagnetThread");
+	//G8RTOS_AddThread(BoardLedUpdateThread, 4, "LedThread");
+	G8RTOS_AddThread(test, 4, "Test"); //sprintf doesnt work in G8RTOS
 	G8RTOS_AddThread(IdleThread, 255, "Idle");
 
-    P3->DIR = BIT0; // Make pin 0 and output
-	P3->OUT = 1; // Data line is defaulted to low (inverted in external circuit)
+    // P3->DIR = BIT0; // Make pin 0 and output
+	// P3->OUT = 1; // Data line is defaulted to low (inverted in external circuit)
 
 	G8RTOS_Launch();
 
