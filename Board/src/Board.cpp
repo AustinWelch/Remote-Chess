@@ -6,7 +6,7 @@ using namespace RemoteChess;
 using namespace std;
 
 Board::Board(PlayerColor color) : fsm(color == PlayerColor::WHITE ? BoardState::AWAITING_LOCAL_MOVE : BoardState::AWAITING_REMOTE_MOVE_NOTICE) {
-
+    chessServer_init(CLOSE_CONNECTION);
 }
 
 void Board::LiftPiece(const Cell& cell) {
@@ -77,66 +77,55 @@ void Board::PlacePiece(const Cell& cell) {
 	G8RTOS_ReleaseSemaphore(&boardSem);
 }
 
-RemoteChess::flat_vector<Cell, 32> Board::GetLegalMovesPiece(const Cell& origin) {
-	flat_vector<Cell, 32> legalMoves;
+RemoteChess::flat_vector<Cell, 32> Board::GetLegalMovesPiece(const Cell& origin) const {
+	int pos = ((origin.rank - 1) * 8 + (origin.file - 1));
 
-	int pos = (origin.rank + origin.file * 8);
-
-	RemoteChess::flat_vector<Cell, 32>& cells = allLegalMoves[pos];
-
-	for (const Cell& cell : cells)
-		legalMoves.push_back(cell);
-	
-	return legalMoves;
+	return allLegalMoves[pos];
 }
 
-RemoteChess::flat_vector<Cell, 32> Board::GetAttackingMovesPiece(const Cell& origin) {
-	flat_vector<Cell, 32> attackingMoves;
-
-	int pos = (origin.rank + origin.file * 8);
-
-	RemoteChess::flat_vector<Cell, 8>& cells = allAttackingMoves[pos];
-
-	for (const Cell& cell : cells)
-		attackingMoves.push_back(cell);
-	
-	return attackingMoves;
+RemoteChess::flat_vector<Cell, 8> Board::GetAttackingMovesPiece(const Cell& origin) const {
+    int pos = ((origin.rank - 1) * 8 + (origin.file - 1));
+	return allAttackingMoves[pos];
 }
 
 std::string Board::GetPieceName(const Cell& cell) const {
-	int pos = (cell.rank + cell.file * 8);
+    int pos = ((cell.rank - 1) * 8 + (cell.file - 1));
 	return pieceNames[pos];
 }
 
-void Board::GetLegalMovesAll(const Cell& origin) {
-	allLegalMoves.erase_all();
-	allAttackingMoves.erase_all();
-	pieceNames.erase_all();
+void Board::GetLegalMovesAll() {
+//	allLegalMoves.erase_all();
+//	allAttackingMoves.erase_all();
+//	pieceNames.erase_all();
 
 	char movesString[1024];
-	chessServer_getLegalMoves(movesString);
 
-	char *strpt = movesString + 12;
+	G8RTOS_StartCriticalSection();
+	chessServer_getLegalMoves(movesString);
+	G8RTOS_EndCriticalSection();
+
+	printf(movesString);
+
+	char *strpt = movesString + 14;
 
 	int curPos;
-	std::string name;
 	while(*strpt != '}')
 	{
 		curPos = (*(strpt+1) - 97) + ((*(strpt+2) - 49) * 8);
 		strpt += 8;
 	
+		std::string &name = pieceNames[curPos];
 		name.clear();
 		int i = 0;
 		while(*strpt != '\'')
-			name[i++] = *strpt++;
+		    name[i++] = *strpt++;
 
-		pieceNames[curPos] = name;
 		strpt += 3;
 		
 		flat_vector<Cell, 32> legalMovesPiece;
 		flat_vector<Cell, 8> attackingMovesPiece;
 		while(*strpt != ']') {
-			Cell curCell = Cell(*(strpt + 1) - 96,*(strpt + 2));
+			Cell curCell = Cell(*(strpt + 1) - 96,*(strpt + 2)-48);
 			legalMovesPiece.push_back(curCell);
 			if (*(strpt + 3) != '\'') {
 				if (*(strpt + 3) == 'A')

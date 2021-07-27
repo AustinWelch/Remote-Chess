@@ -8,10 +8,12 @@
 #include "Move.h"
 #include <unordered_set>
 #include <string>
+#include <iostream>
 
 extern "C" {
     #include "chessServer.h"
     #include "G8RTOS_Semaphores.h"
+    #include "G8RTOS_CriticalSection.h"
 };
 
 namespace RemoteChess {
@@ -56,9 +58,9 @@ namespace RemoteChess {
         RemoteChess::optional<Move> lastRemoteMove{ Move(Cell(1, 7), Cell(2, 5)) };
         RemoteChess::optional<Move> lastLocalMove;
 
-        flat_vector<flat_vector<Cell, 32>, 32> allLegalMoves;
-        flat_vector<flat_vector<Cell, 8>, 32> allAttackingMoves;
-        flat_vector<std::string, 32> pieceNames;
+        flat_vector<flat_vector<Cell, 32>, 64> allLegalMoves = {};
+        flat_vector<flat_vector<Cell, 8>, 64> allAttackingMoves = {};
+        flat_vector<std::string, 32> pieceNames = {};
 
 		public:
 
@@ -72,14 +74,15 @@ namespace RemoteChess {
 
         void UpdateLedMatrix();
 
+        RemoteChess::flat_vector<Cell, 32> GetLegalMovesPiece(const Cell& origin) const;
+        RemoteChess::flat_vector<Cell, 8> GetAttackingMovesPiece(const Cell& origin) const;
+        std::string Board::GetPieceName(const Cell& cell) const;
+        void GetLegalMovesAll();
+
         private:
         void DrawRemoteMove();
         void CompleteRemoteMoveFollowthrough();
         bool CanLiftPiece(const Cell& origin) const;
         
-        RemoteChess::flat_vector<Cell, 32> GetLegalMovesPiece(const Cell& origin);
-        RemoteChess::flat_vector<Cell, 32> GetAttackingMovesPiece(const Cell& origin);
-        void GetLegalMovesAll(const Cell& origin);
-        std::string Board::GetPieceName(const Cell& cell) const;
 	};
 }
