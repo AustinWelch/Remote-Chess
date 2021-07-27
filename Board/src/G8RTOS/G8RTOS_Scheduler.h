@@ -5,7 +5,7 @@
 // #include "core_cm4.h"
 #include <stdint.h>
 
-#define MAX_THREADS 23
+#define MAX_THREADS 10
 #define MAX_PTHREADS 2
 #define STACKSIZE 512
 #define OSINT_PRIORITY 7
