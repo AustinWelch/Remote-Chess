@@ -74,11 +74,11 @@
  * Values for below macros shall be modified per the access-point's (AP) properties
  * SimpleLink device will connect to following AP when the application is executed
  */
-#define SSID_NAME       "The Welchs"         /* Access point name to connect to. */
+char SSID_NAME[100]   =    "The Welchs"         /* Access point name to connect to. */
 #define SEC_TYPE        SL_SEC_TYPE_WPA_WPA2    /* Security type of the Access piont */
-//#define SEC_TYPE        SL_SEC_TYPE_OPEN    /* Security type of the Access piont */
-#define PASSKEY         "Roundplanet246"                  /* Password in case of secure AP */
-#define PASSKEY_LEN     pal_Strlen(PASSKEY)  /* Password length in case of secure AP */
+
+char PASSKEY[100]     =    "Roundplanet246"                  /* Password in case of secure AP */
+#define PASSKEY_LEN     strlen(PASSKEY)  /* Password length in case of secure AP */
 
 /* Configuration of the device when it comes up in AP mode */
 #define SSID_AP_MODE       "<ap_mode_ssid>"       /* SSID of the CC3100 in AP mode */
