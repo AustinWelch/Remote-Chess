@@ -5,15 +5,15 @@
 using namespace RemoteChess;
 using namespace std;
 
-Board::Board(PlayerColor color) : fsm(color == PlayerColor::WHITE ? BoardState::AWAITING_LOCAL_MOVE : BoardState::AWAITING_REMOTE_MOVE_NOTICE) {
-    chessServer_init(CLOSE_CONNECTION);
-    chessServer_getCurrentGame();
+Board::Board(PlayerColor color, Board::BoardState state) {
+	playerColor = color;
+	boardFSM(state);
 }
 
 void Board::LiftPiece(const Cell& cell) {
 	G8RTOS_AcquireSemaphore(&boardSem);
 
-	if (fsm.CanMakeLocalMove()) {
+	if (boardFSM.CanMakeLocalMove()) {
 		if (cell == placedPiece) {
 			// Check for if lifting up a piece that was previously legally placed before confirming move with button
 			placedPiece = nullptr;
@@ -27,7 +27,7 @@ void Board::LiftPiece(const Cell& cell) {
 			// Lifted up a piece we weren't allowed to move (such as an enemy piece not takeable or a piece blocking check)
 			invalidLifts.insert(cell);
 		}
-	} else if (fsm.CanFollowthroughRemoteMove() && lastRemoteMove.HasValue() && cell == lastRemoteMove->from) {
+	} else if (boardFSM.CanFollowthroughRemoteMove() && lastRemoteMove.HasValue() && cell == lastRemoteMove->from) {
 		// Check if making remote move
 		liftedPiece = cell;
 	} else {
@@ -44,7 +44,7 @@ void Board::PlacePiece(const Cell& cell) {
 		// Unexpected piece placed without lifting anything
 		invalidPlacements.insert(cell);
 	} else {
-		if (fsm.CanMakeLocalMove()) {
+		if (boardFSM.CanMakeLocalMove()) {
 			if (cell == liftedPiece) {
 				// Placing a lifted piece back where it started
 				liftedPiece = nullptr;
@@ -62,7 +62,7 @@ void Board::PlacePiece(const Cell& cell) {
 					invalidPlacements.insert(cell);
 				}
 			}
-		} else if (fsm.CanFollowthroughRemoteMove()) {
+		} else if (boardFSM.CanFollowthroughRemoteMove()) {
 			if (cell == lastRemoteMove->to) {
 				placedPiece = cell;
 
@@ -95,9 +95,9 @@ std::string Board::GetPieceName(const Cell& cell) const {
 }
 
 void Board::GetLegalMovesAll() {
-	for(flat_vector<Cell, 32>& pieceMoves : allLegalMoves)
+	for (flat_vector<Cell, 32>& pieceMoves : allLegalMoves)
 		pieceMoves.erase_all();
-	for(flat_vector<Cell, 8>& pieceAttackingMoves : allAttackingMoves)
+	for (flat_vector<Cell, 8>& pieceAttackingMoves : allAttackingMoves)
 		pieceAttackingMoves.erase_all();
 
 	char movesString[1024];
@@ -111,7 +111,7 @@ void Board::GetLegalMovesAll() {
 	char *strpt = movesString + 14;
 
 	int curPos;
-	while(*strpt != '}')
+	while (*strpt != '}')
 	{
 		curPos = (*(strpt+1) - 97) + ((*(strpt+2) - 49) * 8);
 		strpt += 8;
@@ -119,14 +119,14 @@ void Board::GetLegalMovesAll() {
 		std::string &name = pieceNames[curPos];
 		name.clear();
 		int i = 0;
-		while(*strpt != '\'')
+		while (*strpt != '\'')
 		    name[i++] = *strpt++;
 
 		strpt += 3;
 		
 		flat_vector<Cell, 32> legalMovesPiece;
 		flat_vector<Cell, 8> attackingMovesPiece;
-		while(*strpt != ']') {
+		while (*strpt != ']') {
 			Cell curCell = Cell(*(strpt + 1) - 96,*(strpt + 2)-48);
 			legalMovesPiece.push_back(curCell);
 			if (*(strpt + 3) != '\'') {
@@ -156,7 +156,7 @@ bool Board::CanLiftPiece(const Cell& cell) const {
 void Board::SubmitCurrentLocalMove() {
 	G8RTOS_AcquireSemaphore(&boardSem);
 
-	if (!fsm.CanMakeLocalMove())
+	if (!boardFSM.CanMakeLocalMove())
 		return;
 
 	if (!invalidLifts.is_empty() || !invalidPlacements.is_empty())
@@ -171,31 +171,31 @@ void Board::SubmitCurrentLocalMove() {
 	liftedPiece = nullptr;
 	placedPiece = nullptr;
 
-	fsm.t_LocalMoveSubmitted();
+	boardFSM.t_LocalMoveSubmitted();
 
 	G8RTOS_ReleaseSemaphore(&boardSem);
 }
 
 void Board::CompleteRemoteMoveFollowthrough() {
-	if (!fsm.CanFollowthroughRemoteMove())
+	if (!boardFSM.CanFollowthroughRemoteMove())
 		return;
 
 	liftedPiece = nullptr;
 	placedPiece = nullptr;
 
-	fsm.t_RemoteMoveFollowthroughed();
+	boardFSM.t_RemoteMoveFollowthroughed();
 }
 
 void Board::ReceiveRemoteMove(const Move& move) {
 	G8RTOS_AcquireSemaphore(&boardSem);
 
-	if (!fsm.CanReceiveRemoteMove())
+	if (!boardFSM.CanReceiveRemoteMove())
 		return;
 
 	lastRemoteMove = move;
 	lastLocalMove = nullptr;
 
-	fsm.t_RemoteMoveReceived();
+	boardFSM.t_RemoteMoveReceived();
 
 	G8RTOS_ReleaseSemaphore(&boardSem);
 }
@@ -212,7 +212,7 @@ void Board::UpdateLedMatrix() {
 
 	ledMatrix.DrawChecker();
 
-	switch (fsm.GetState()) {
+	switch (boardFSM.GetState()) {
 		case BoardState::AWAITING_LOCAL_MOVE:
 			DrawRemoteMove();
 
@@ -233,7 +233,7 @@ void Board::UpdateLedMatrix() {
 				ledMatrix.SetCell(lastLocalMove->to, Colors::MAGENTA);
 			}
 
-			break;
+			break; //TODO: break statement was missing, remove if intentional
 		case BoardState::AWAITING_REMOTE_MOVE_FOLLOWTHROUGH:
 			if (!liftedPiece) {
 				ledMatrix.SetCell(lastRemoteMove->from, Colors::MAGENTA);
@@ -241,6 +241,8 @@ void Board::UpdateLedMatrix() {
 			} else {
 				ledMatrix.SetCell(lastRemoteMove->to, Colors::BLUE);
 			}
+
+			break;
 		default:
 			break;
 	}
@@ -258,38 +260,44 @@ void Board::UpdateLedMatrix() {
 	G8RTOS_ReleaseSemaphore(&boardSem);
 }
 
-Board::BoardState Board::FSM::GetState() const {
+Board::BoardState Board::BoardFSM::GetState() const {
 	BoardState retVal = curState;
 
 	return retVal;
 }
 
-void Board::FSM::t_LocalMoveSubmitted() {
+std::string GetLiftedPieceName() const {
+	std::string name = GetPieceName(liftedPiece.Value());
+
+	return name;
+}
+
+void Board::BoardFSM::t_LocalMoveSubmitted() {
 	if (CanMakeLocalMove()) {
 		curState = BoardState::AWAITING_REMOTE_MOVE_NOTICE;
 	}
 }
 
-void Board::FSM::t_RemoteMoveFollowthroughed() {
+void Board::BoardFSM::t_RemoteMoveFollowthroughed() {
 	if (CanFollowthroughRemoteMove()) {
 		curState = BoardState::AWAITING_LOCAL_MOVE;
 	}
 }
 
-void Board::FSM::t_RemoteMoveReceived() {
+void Board::BoardFSM::t_RemoteMoveReceived() {
 	if (CanReceiveRemoteMove()) {
 		curState = BoardState::AWAITING_REMOTE_MOVE_FOLLOWTHROUGH;
 	}
 }
 
-bool Board::FSM::CanMakeLocalMove() const {
+bool Board::BoardFSM::CanMakeLocalMove() const {
 	return curState == BoardState::AWAITING_LOCAL_MOVE;
 }
 
-bool Board::FSM::CanFollowthroughRemoteMove() const {
+bool Board::BoardFSM::CanFollowthroughRemoteMove() const {
 	return curState == BoardState::AWAITING_REMOTE_MOVE_FOLLOWTHROUGH;
 }
 
-bool Board::FSM::CanReceiveRemoteMove() const {
+bool Board::BoardFSM::CanReceiveRemoteMove() const {
 	return curState == BoardState::AWAITING_REMOTE_MOVE_NOTICE;
 }

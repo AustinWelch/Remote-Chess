@@ -28,11 +28,11 @@ namespace RemoteChess {
             , AWAITING_REMOTE_MOVE_FOLLOWTHROUGH
         };
 
-        class FSM {
+        class BoardFSM {
             BoardState curState;
 
             public:
-            FSM(BoardState initialState) : curState(initialState) { }
+            BoardFSM(BoardState initialState) : curState(initialState) { }
             BoardState GetState() const;
 
             void t_LocalMoveSubmitted();
@@ -46,28 +46,33 @@ namespace RemoteChess {
 
         mutable Semaphore boardSem = { 1 };
 
-        FSM fsm;
+        BoardFSM boardFSM;
 		LedMatrix ledMatrix;
+        PlayerColor playerColor;
 
         RemoteChess::optional<Cell> liftedPiece;
         RemoteChess::optional<Cell> placedPiece;
+        std::string liftedPieceName;
 
         RemoteChess::flat_unordered_set<Cell, 64> invalidLifts; // Make sure you have your daily dose of squatz and oatz
         RemoteChess::flat_unordered_set<Cell, 64> invalidPlacements;
 
-        RemoteChess::optional<Move> lastRemoteMove{ Move(Cell(1, 7), Cell(2, 5)) };
+        RemoteChess::optional<Move> lastRemoteMove;
         RemoteChess::optional<Move> lastLocalMove;
 
         flat_vector<flat_vector<Cell, 32>, 64> allLegalMoves = {};
         flat_vector<flat_vector<Cell, 8>, 64> allAttackingMoves = {};
         flat_vector<std::string, 32> pieceNames = {};
 
+
 		public:
 
-		Board(PlayerColor color);
+		Board(PlayerColor color, BoardState state);
 
         void LiftPiece(const Cell& location);
         void PlacePiece(const Cell& location);
+
+        std::string GetLiftedPieceName() const;
         
         void SubmitCurrentLocalMove();
         void ReceiveRemoteMove(const Move& move);
