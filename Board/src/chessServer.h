@@ -18,21 +18,27 @@
 #define WAITING -3
 #define INVALID_MOVE -4
 #define NOT_IN_GAME -5
+#define NO_FRIENDS -6
+#define NO_INVITES -7
 
-
-void chessServer_init(uint32_t conntype);
+uint8_t chessServer_init(uint32_t conntype);
 int8_t chessServer_makeMove(char* move);
 int8_t chessServer_getLegalMoves(char* response);
 int8_t chessServer_newGame(char* response);
 int8_t chessServer_joinGame(char* response);
 int8_t chessServer_deleteGame(char* response);
-int8_t chessServer_awaitTurn();
+int8_t chessServer_awaitTurn(char* response);
 void chessServer_setGameCode(char* newGameCode);
 int8_t chessServer_getFriends(char* response);
 int8_t chessServer_addFriend(char* response, uint16_t friendId);
-int8_t chessServer_getCurrentGame();
+int8_t chessServer_removeFriend(char* response, uint16_t friendId);
+int8_t chessServer_getInvites(char* response);
+int8_t chessServer_sendInvite(char* response, uint16_t inviteeId);
+int8_t chessServer_cancelInvite(char* response, uint16_t inviteeId);
+int8_t chessServer_acceptInvite(char* response, uint16_t inviterId);
+int8_t chessServer_declineInvite(char* response, uint16_t inviterId);
+int8_t chessServer_getCurrentGame(char* response);
 int8_t chessServer_setName(char* response, char* newName);
 uint8_t buildAndSendReq(char *parsedResponse);
-
 
 #endif
