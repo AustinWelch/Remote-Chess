@@ -7,7 +7,7 @@ from os import error
 from flask import Flask
 
 try:
-    cred = credentials.Certificate('hey-frame-firestore-key.json')
+    cred = credentials.Certificate('./hey-frame-firestore-key.json')
     firebase_admin.initialize_app(cred)
     db = firestore.client()
 except:
@@ -35,7 +35,10 @@ def user_page(boardid):
         db.collection('chess').document('users').collection('users').document(boardid).set({
              'friends' : {}
             ,'ongoing_game' : ''
-            ,'name':'unknown'
+            ,'name' : 'Player'
+            ,'invites' : {}
+            ,'incoming_pending_friends' : {}
+            ,'outgoing_pending_friends' : {}
         })
         userInfo = db.collection('chess').document('users').collection('users').document(boardid).get().to_dict()
         return '<span style="white-space: pre-wrap">' + 'Friends:\n' + str(userInfo['friends']) +  '\nGames:\n' + str(userInfo['ongoing_game']) +'\n</span>'
@@ -47,7 +50,7 @@ def set_name(boardid, new_name):
         db.collection('chess').document('users').collection('users').document(boardid).update({ 'name':new_name })
         return '<span style="white-space: pre-wrap">Name successfully updated to' + new_name + '\n</span>'
     except:
-        return '<span style="white-space: pre-wrap">Name could not be updated.\n</span>'
+        return '<span style="white-space: pre-wrap">Name could not be updated.</span>'
 
 
 @app.route('/user/<boardid>/getgame')
@@ -55,11 +58,11 @@ def get_game(boardid):
     try:
         ongoing_game = str(db.collection('chess').document('users').collection('users').document(boardid).get().to_dict()['ongoing_game'])
         if(ongoing_game == ''):
-            return '<span style="white-space: pre-wrap">Not in a game.\n</span>'
+            return '<span style="white-space: pre-wrap">Not in a game.</span>'
         else:
             return '<span style="white-space: pre-wrap">Game code: ' + ongoing_game + '</span>'
     except:
-        return '<span style="white-space: pre-wrap">User does not exist!\n</span>'
+        return '<span style="white-space: pre-wrap">User does not exist!</span>'
 
 
 @app.route('/user/<boardid>/getfriends')
@@ -69,7 +72,7 @@ def get_friends(boardid):
         friends = user_col.document(boardid).get().to_dict()['friends']
 
         if(len(friends) == 0):
-            return '<span style="white-space: pre-wrap">You currently have no friends added.\n</span>'
+            return '<span style="white-space: pre-wrap">You currently have no friends added.</span>'
 
         return_list = ''
         changed = False
@@ -80,21 +83,21 @@ def get_friends(boardid):
             if(friend_name != current_friend_name):
                 friends[key] = current_friend_name
                 changed = True
-            return_list = return_list + friends[key] +'\n'
+            return_list = return_list + friends[key] + ', '
 
         if(changed):
             user_col.document(boardid).update({ 'friends':friends })
 
-        return '<span style="white-space: pre-wrap">' + 'Friends:\n' + return_list +'\n</span>'
+        return '<span style="white-space: pre-wrap">' + 'Friends: ' + return_list +'</span>'
     
     except:
-        return '<span style="white-space: pre-wrap">User does not exist!\n</span>'
+        return '<span style="white-space: pre-wrap">User does not exist!</span>'
 
 
 @app.route('/user/<boardid>/newgame')
 def create_new_game(boardid):
     def createId():
-        id = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(7))
+        id = ''.join(random.choice(string.digits) for _ in range(6))
 
         if(db.collection('chess').document('games').collection('games').document(id).get().to_dict()):
             return createId()
@@ -141,7 +144,7 @@ def add_friend(boardid, friendid):
     try:
         friend_name = db.collection('chess').document('users').collection('users').document(friendid).get().to_dict()['name']
         friends = db.collection('chess').document('users').collection('users').document(boardid).get().to_dict()['friends']
-        if(friends[friendid]):
+        if friendid in friends:
             return '<span style="white-space: pre-wrap">User with ID: ' + friendid + ' already added as friend. \n</span>'
 
         friends[friendid] = friend_name
@@ -151,6 +154,123 @@ def add_friend(boardid, friendid):
     except:
         return '<span style="white-space: pre-wrap">User with ID: ' + friendid + ' was not found.\n</span>'
 
+#Implement "handshake" friend system
+#Cancel friend req
+#Accept friend req
+#Decline friend req
+
+@app.route('/user/<boardid>/removefriend/<friendid>')
+def remove_friend(boardid, friendid):
+    friends = db.collection('chess').document('users').collection('users').document(boardid).get().to_dict()['friends']
+    if friendid in friends:
+        del friends[friendid]
+        db.collection('chess').document('users').collection('users').document(boardid).update({'friends' : friends})
+
+        # removedFriendFriends = db.collection('chess').document('users').collection('users').document(friendid).get().to_dict()['friends']
+        # del removedFriendFriends[boardid]
+        # db.collection('chess').document('users').collection('users').document(friendid).update({'friends' : removedFriendFriends})
+
+        return '<span style="white-space: pre-wrap">Removed friend.</span>'
+
+    return '<span style="white-space: pre-wrap">Friend was not found.\n</span>'
+
+
+@app.route('/user/<boardid>/invites')
+def get_invites(boardid):
+    try:
+        invites = db.collection('chess').document('users').collection('users').document(boardid).get().to_dict()['invites']
+        if(len(invites) == 0):
+            return '<span style="white-space: pre-wrap">No invites pending</span>'
+
+        parsedInvites = "Invites: "
+        for key in invites:
+            parsedInvites += key + ',' + invites[key][0] + ',' + invites[key][1] + ';'
+
+        return parsedInvites
+
+    except:
+        return '<span style="white-space: pre-wrap">User with ID: '+ boardid + ' does not exist</span>'
+
+
+@app.route('/user/<boardid>/sendinvite/<inviteeid>')
+def send_invites(boardid, inviteeid):
+    try:
+        invitee = db.collection('chess').document('users').collection('users').document(inviteeid).get().to_dict()
+        inviter = db.collection('chess').document('users').collection('users').document(boardid).get().to_dict()
+
+        if (inviter['ongoing_game']):
+            return '<span style="white-space: pre-wrap">You are already in a game</span>'
+
+        if (invitee['ongoing_game']):
+            return '<span style="white-space: pre-wrap">' + invitee['name'] + ' is already in a game</span>'
+        
+        create_new_game(boardid)
+
+        inviter = db.collection('chess').document('users').collection('users').document(boardid).get().to_dict()
+
+        invitee['invites'][boardid] = [inviter['name'], inviter['ongoing_game']]
+        db.collection('chess').document('users').collection('users').document(inviteeid).update({ 'invites' :  invitee['invites'] })
+
+        return '<span style="white-space: pre-wrap">Invite sent successfully</span>'
+
+    except:
+        return '<span style="white-space: pre-wrap">User with ID: '+ inviteeid + ' does not exist</span>'
+
+
+@app.route('/user/<boardid>/cancelinvite/<inviteeid>')
+def cancel_invite(boardid, inviteeid):
+    try:
+        invitee = db.collection('chess').document('users').collection('users').document(inviteeid).get().to_dict()
+        invites = invitee['invites']
+        if(len(invites) == 0 or not boardid in invites):
+            return '<span style="white-space: pre-wrap">No invite pending with ' + invitee['name'] + '</span>'
+
+        del invites[boardid]
+        db.collection('chess').document('users').collection('users').document(inviteeid).update({ 'invites' :  invites })
+
+        delete_game(db.collection('chess').document('users').collection('users').document(boardid).get().to_dict()['ongoing_game'])
+
+        return '<span style="white-space: pre-wrap">Canceled invite with ' + invitee['name'] + '</span>'
+
+    except:
+        return '<span style="white-space: pre-wrap">User does not exist</span>'
+
+
+@app.route('/user/<boardid>/acceptinvite/<inviterid>')
+def accept_invite(boardid, inviterid):
+    try:
+        invites = db.collection('chess').document('users').collection('users').document(boardid).get().to_dict()['invites']
+        if(len(invites) == 0 or not inviterid in invites):
+            return '<span style="white-space: pre-wrap">Invite does not exist</span>'
+
+        join_game(boardid, invites[inviterid][1])
+
+        del invites[inviterid]
+        db.collection('chess').document('users').collection('users').document(boardid).update({ 'invites' :  invites })
+
+        return '<span style="white-space: pre-wrap">Invite successfully accepted</span>'
+
+    except:
+        return '<span style="white-space: pre-wrap">User does not exist</span>'
+
+
+@app.route('/user/<boardid>/declineinvite/<inviterid>')
+def decline_invite(boardid, inviterid):
+    try:
+        invites = db.collection('chess').document('users').collection('users').document(boardid).get().to_dict()['invites']
+        if(len(invites) == 0 or not inviterid in invites):
+            return '<span style="white-space: pre-wrap">Invite does not exist</span>'
+
+        delete_game(invites[inviterid][1])
+
+        del invites[inviterid]
+        db.collection('chess').document('users').collection('users').document(boardid).update({ 'invites' :  invites })
+
+        return '<span style="white-space: pre-wrap">Invite declined</span>'
+
+    except:
+        return '<span style="white-space: pre-wrap">User does not exist</span>'
+
 
 @app.route('/game/<game_code>')
 def get_code(game_code):
@@ -159,7 +279,7 @@ def get_code(game_code):
 
 
 @app.route('/game/<game_code>/delete')
-def delete_board(game_code):
+def delete_game(game_code):
     try:
         game_ref = db.collection('chess').document('games').collection('games').document(game_code)
         game = game_ref.get().to_dict()
@@ -174,7 +294,7 @@ def delete_board(game_code):
         game_ref.delete()
         return '<span style="white-space: pre-wrap">' + 'Deleted Game ' + game_code + '\n</span>'
     except:
-        return '<span style="white-space: pre-wrap">Game not found!\n</span>'
+        return '<span style="white-space: pre-wrap">Game not found\n</span>'
 
 
 @app.route('/game/<game_code>/getboard')
@@ -184,13 +304,16 @@ def get_board(game_code):
 
 @app.route('/game/<game_code>/turnready/<int:user_id>')
 def is_turn_ready(game_code, user_id):
-    game = db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()
-    if (game['players_joined'] == 1):
-        return '<span style="white-space: pre-wrap">Waiting for opponent to join.</span>'
-    elif (game['players_turn'] == user_id):
-        return '<span style="white-space: pre-wrap">Turn Ready.</span>'
-    else:
-        return '<span style="white-space: pre-wrap">Turn Not Ready.</span>'
+    try:
+        game = db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()
+        if (game['players_joined'] == 1):
+            return '<span style="white-space: pre-wrap">Waiting for opponent to join</span>'
+        elif (game['players_turn'] == user_id):
+            return '<span style="white-space: pre-wrap">Turn Ready</span>'
+        else:
+            return '<span style="white-space: pre-wrap">Turn Not Ready</span>'
+    except:
+        return '<span style="white-space: pre-wrap">Game does not exist</span>'
 
 
 @app.route('/game/<game_code>/getlegalmoves')
