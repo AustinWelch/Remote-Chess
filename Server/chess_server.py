@@ -53,6 +53,15 @@ def set_name(boardid, new_name):
         return '<span style="white-space: pre-wrap">Name could not be updated.</span>'
 
 
+@app.route('/user/<boardid>/getname')
+def set_name(boardid, new_name):
+    try:
+        name = db.collection('chess').document('users').collection('users').document(boardid).get().to_dict()['name']
+        return '<span style="white-space: pre-wrap">Name: ' + name + '</span>'
+    except:
+        return '<span style="white-space: pre-wrap">Name could not be retrieved.</span>'
+
+
 @app.route('/user/<boardid>/getgame')
 def get_game(boardid):
     try:
@@ -69,24 +78,49 @@ def get_game(boardid):
 def get_friends(boardid):
     try:
         user_col = db.collection('chess').document('users').collection('users')
-        friends = user_col.document(boardid).get().to_dict()['friends']
-
-        if(len(friends) == 0):
-            return '<span style="white-space: pre-wrap">You currently have no friends added.</span>'
+        user = user_col.document(boardid).get().to_dict()
+        friends = user['friends']
+        outgoing_reqs = user['outgoing_pending_friends']
+        incoming_reqs = user['incoming_pending_friends']
 
         return_list = ''
-        changed = False
 
-        for key in friends:
-            friend_name = friends[key]
-            current_friend_name = user_col.document(key).get().to_dict()['name']
-            if(friend_name != current_friend_name):
-                friends[key] = current_friend_name
-                changed = True
-            return_list = return_list + friends[key] + ', '
+        if(len(friends) == 0):
+            return_list = 'No Friends'
 
-        if(changed):
-            user_col.document(boardid).update({ 'friends':friends })
+        else:
+            changed = False
+
+            for key in friends:
+                friend_name = friends[key]
+                current_friend_name = user_col.document(key).get().to_dict()['name']
+                if(friend_name != current_friend_name):
+                    friends[key] = current_friend_name
+                    changed = True
+                return_list = return_list + key + ', ' + friends[key] + ', '
+
+            if(changed):
+                user_col.document(boardid).update({ 'friends':friends })
+
+        return_list = return_list + ';'
+
+        if(len(incoming_reqs) == 0):
+            return_list = return_list + 'No Incoming Reqs'
+
+        else:
+            for key in incoming_reqs:
+                return_list = return_list + key + ', ' + incoming_reqs[key] + ', '
+
+        return_list = return_list + ';'
+
+        if(len(outgoing_reqs) == 0):
+             return_list = return_list + 'No Outgoing Reqs'
+
+        else:
+            for key in outgoing_reqs:
+                return_list = return_list + key + ', ' + outgoing_reqs[key] + ', '
+        
+        return_list = return_list + ';'
 
         return '<span style="white-space: pre-wrap">' + 'Friends: ' + return_list +'</span>'
     
@@ -142,22 +176,101 @@ def join_game(boardid, game_code):
 @app.route('/user/<boardid>/addfriend/<friendid>')
 def add_friend(boardid, friendid):
     try:
-        friend_name = db.collection('chess').document('users').collection('users').document(friendid).get().to_dict()['name']
-        friends = db.collection('chess').document('users').collection('users').document(boardid).get().to_dict()['friends']
-        if friendid in friends:
-            return '<span style="white-space: pre-wrap">User with ID: ' + friendid + ' already added as friend. \n</span>'
+        friend = db.collection('chess').document('users').collection('users').document(friendid).get().to_dict()
+        friend_name = friend['name']
 
-        friends[friendid] = friend_name
-        db.collection('chess').document('users').collection('users').document(boardid).update({'friends' : friends})
-        return '<span style="white-space: pre-wrap">User with ID: ' + friendid + ' added as friend ' + friend_name + '!\n</span>'
+        user = db.collection('chess').document('users').collection('users').document(boardid).get().to_dict()
+        friends = user['friends']
+
+        if friendid in friends:
+            return '<span style="white-space: pre-wrap">' + friend_name + ' already added as friend. </span>'
+
+        user['outgoing_pending_friends'][friendid] = friend_name
+        friend['incoming_pending_friends'][boardid] = user['name']
+
+        db.collection('chess').document('users').collection('users').document(boardid).update({'outgoing_pending_friends' : user['outgoing_pending_friends']})
+        db.collection('chess').document('users').collection('users').document(friendid).update({'incoming_pending_friends' : friend['incoming_pending_friends']})
+
+        return '<span style="white-space: pre-wrap">Sent a friend request to ' + friend_name + '!</span>'
 
     except:
-        return '<span style="white-space: pre-wrap">User with ID: ' + friendid + ' was not found.\n</span>'
+        return '<span style="white-space: pre-wrap">User with ID: ' + friendid + ' was not found.</span>'
 
-#Implement "handshake" friend system
-#Cancel friend req
-#Accept friend req
-#Decline friend req
+
+@app.route('/user/<boardid>/cancelfriend/<friendid>')
+def cancel_friend(boardid, friendid):
+    try:
+        friend = db.collection('chess').document('users').collection('users').document(friendid).get().to_dict()
+        user = db.collection('chess').document('users').collection('users').document(boardid).get().to_dict()
+
+        incoming_pending_friends = friend['incoming_pending_friends']
+        outgoing_pending_friends = user['outgoing_pending_friends']
+
+        if(len(incoming_pending_friends) == 0 or not boardid in incoming_pending_friends):
+            return '<span style="white-space: pre-wrap">No friend request with user ' + friendid + '</span>'
+
+        del incoming_pending_friends[boardid]
+        del outgoing_pending_friends[friendid]
+
+        db.collection('chess').document('users').collection('users').document(friendid).update({ 'incoming_pending_friends' :  incoming_pending_friends })
+        db.collection('chess').document('users').collection('users').document(boardid).update({ 'outgoing_pending_friends' :  outgoing_pending_friends })
+        
+        return '<span style="white-space: pre-wrap">Canceled friend request to ' + friend['name'] + '</span>'
+
+    except:
+        return '<span style="white-space: pre-wrap">User does not exist</span>'
+
+
+@app.route('/user/<boardid>/acceptfriend/<sender_id>')
+def accept_friend(boardid, sender_id):
+    try:
+        sender = db.collection('chess').document('users').collection('users').document(sender_id).get().to_dict()
+        user = db.collection('chess').document('users').collection('users').document(boardid).get().to_dict()
+
+        incoming_pending_friends = user['incoming_pending_friends']
+        if(not sender_id in incoming_pending_friends):
+            return '<span style="white-space: pre-wrap">No friend request from user ' + sender_id + '</span>'
+
+        user['friends'][sender_id] = sender['name']
+        sender['friends'][boardid] = user['name']
+
+        del user['incoming_pending_friends'][sender_id]
+        del sender['outgoing_pending_friends'][boardid]
+
+        db.collection('chess').document('users').collection('users').document(boardid).update({
+             'friends' : user['friends']
+            ,'incoming_pending_friends' : user['incoming_pending_friends']
+        })
+        db.collection('chess').document('users').collection('users').document(sender_id).update({
+             'friends' : sender['friends']
+            ,'outgoing_pending_friends' : sender['outgoing_pending_friends']
+        })
+
+        return '<span style="white-space: pre-wrap">' + sender['name'] + ' added as a friend</span>'
+    except:
+        return '<span style="white-space: pre-wrap">User does not exist</span>'
+
+
+@app.route('/user/<boardid>/declinefriend/<sender_id>')
+def decline_friend(boardid, sender_id):
+    try:
+        sender = db.collection('chess').document('users').collection('users').document(sender_id).get().to_dict()
+        user = db.collection('chess').document('users').collection('users').document(boardid).get().to_dict()
+
+        incoming_pending_friends = user['incoming_pending_friends']
+        if(not sender_id in incoming_pending_friends):
+            return '<span style="white-space: pre-wrap">No friend request from user ' + sender_id + '</span>'
+
+        del user['incoming_pending_friends'][sender_id]
+        del sender['outgoing_pending_friends'][boardid]
+
+        db.collection('chess').document('users').collection('users').document(boardid).update({ 'incoming_pending_friends' : user['incoming_pending_friends'] })
+        db.collection('chess').document('users').collection('users').document(sender_id).update({ 'outgoing_pending_friends' : sender['outgoing_pending_friends'] })
+
+        return '<span style="white-space: pre-wrap">Declined ' + sender['name'] + '\'s friend request</span>'
+    except:
+        return '<span style="white-space: pre-wrap">User does not exist</span>'
+
 
 @app.route('/user/<boardid>/removefriend/<friendid>')
 def remove_friend(boardid, friendid):
@@ -166,9 +279,9 @@ def remove_friend(boardid, friendid):
         del friends[friendid]
         db.collection('chess').document('users').collection('users').document(boardid).update({'friends' : friends})
 
-        # removedFriendFriends = db.collection('chess').document('users').collection('users').document(friendid).get().to_dict()['friends']
-        # del removedFriendFriends[boardid]
-        # db.collection('chess').document('users').collection('users').document(friendid).update({'friends' : removedFriendFriends})
+        removedFriendFriends = db.collection('chess').document('users').collection('users').document(friendid).get().to_dict()['friends']
+        del removedFriendFriends[boardid]
+        db.collection('chess').document('users').collection('users').document(friendid).update({'friends' : removedFriendFriends})
 
         return '<span style="white-space: pre-wrap">Removed friend.</span>'
 

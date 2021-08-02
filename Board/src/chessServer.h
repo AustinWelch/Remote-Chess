@@ -31,6 +31,9 @@ int8_t chessServer_awaitTurn(char* response);
 void chessServer_setGameCode(char* newGameCode);
 int8_t chessServer_getFriends(char* response);
 int8_t chessServer_addFriend(char* response, uint16_t friendId);
+int8_t chessServer_cancelFriend(char* response, uint16_t friendId);
+int8_t chessServer_acceptFriend(char* response, uint16_t friendId);
+int8_t chessServer_declineFriend(char* response, uint16_t friendId);
 int8_t chessServer_removeFriend(char* response, uint16_t friendId);
 int8_t chessServer_getInvites(char* response);
 int8_t chessServer_sendInvite(char* response, uint16_t inviteeId);
@@ -39,6 +42,7 @@ int8_t chessServer_acceptInvite(char* response, uint16_t inviterId);
 int8_t chessServer_declineInvite(char* response, uint16_t inviterId);
 int8_t chessServer_getCurrentGame(char* response);
 int8_t chessServer_setName(char* response, char* newName);
+int8_t chessServer_getName(char* response);
 uint8_t buildAndSendReq(char *parsedResponse);
 
 #endif

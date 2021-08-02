@@ -25,7 +25,8 @@ uint8_t chessServer_init(uint32_t conntype)
     sl_NetAppDnsGetHostByName((_i8 *)WEBPAGE, strlen(WEBPAGE), &DestinationIP, SL_AF_INET);
 
     connectionType = conntype;
-    if(connectionType == CLOSE_CONNECTION){
+    if (connectionType == CLOSE_CONNECTION)
+    {
         disconnectFromAP();
         sl_Stop(0xFF);
     }
@@ -178,7 +179,7 @@ int8_t chessServer_getFriends(char *response)
         if (strstr(parsedResponse, "not exist"))
             return INVALID_RESPONSE;
 
-        else if (strstr(parsedResponse, "no friends"))
+        else if (strstr(parsedResponse, "No Friends"))
             return NO_FRIENDS;
 
         return SUCCESS;
@@ -204,7 +205,59 @@ int8_t chessServer_addFriend(char *response, uint16_t friendId)
         return REQUEST_FAILED;
 }
 
-int8_t chessServer_removeFriend(char* response, uint16_t friendId) {
+int8_t chessServer_cancelFriend(char *response, uint16_t friendId)
+{
+    sprintf(requestBody, "/user/%i/cancelfriend/%i", BOARD_ID, friendId);
+
+    char parsedResponse[1024];
+    if (buildAndSendReq(parsedResponse))
+    {
+        strcpy(response, parsedResponse);
+        if (strstr(parsedResponse, "Canceled"))
+            return SUCCESS;
+        else
+            return INVALID_RESPONSE;
+    }
+    else
+        return REQUEST_FAILED;
+}
+
+int8_t chessServer_acceptFriend(char *response, uint16_t friendId)
+{
+    sprintf(requestBody, "/user/%i/acceptfriend/%i", BOARD_ID, friendId);
+
+    char parsedResponse[1024];
+    if (buildAndSendReq(parsedResponse))
+    {
+        strcpy(response, parsedResponse);
+        if (strstr(parsedResponse, "added"))
+            return SUCCESS;
+        else
+            return INVALID_RESPONSE;
+    }
+    else
+        return REQUEST_FAILED;
+}
+
+int8_t chessServer_declineFriend(char *response, uint16_t friendId)
+{
+    sprintf(requestBody, "/user/%i/declinefriend/%i", BOARD_ID, friendId);
+
+    char parsedResponse[1024];
+    if (buildAndSendReq(parsedResponse))
+    {
+        strcpy(response, parsedResponse);
+        if (strstr(parsedResponse, "Declined"))
+            return SUCCESS;
+        else
+            return INVALID_RESPONSE;
+    }
+    else
+        return REQUEST_FAILED;
+}
+
+int8_t chessServer_removeFriend(char *response, uint16_t friendId)
+{
     sprintf(requestBody, "/user/%i/removefriend/%i", BOARD_ID, friendId);
 
     char parsedResponse[1024];
@@ -220,7 +273,8 @@ int8_t chessServer_removeFriend(char* response, uint16_t friendId) {
         return REQUEST_FAILED;
 }
 
-int8_t chessServer_getInvites(char* response) {
+int8_t chessServer_getInvites(char *response)
+{
     sprintf(requestBody, "/user/%i/invites", BOARD_ID);
 
     char parsedResponse[1024];
@@ -230,15 +284,14 @@ int8_t chessServer_getInvites(char* response) {
         if (strstr(parsedResponse, "Invites"))
             return SUCCESS;
         else if (strstr(parsedResponse, "No invites"))
-            return NO_INVITES
-        else
-            return INVALID_RESPONSE;
+            return NO_INVITES else return INVALID_RESPONSE;
     }
     else
         return REQUEST_FAILED;
 }
 
-int8_t chessServer_sendInvite(char* response, uint16_t inviteeId) {
+int8_t chessServer_sendInvite(char *response, uint16_t inviteeId)
+{
     sprintf(requestBody, "/user/%i/sendinvite/%i", BOARD_ID, inviteeId);
 
     char parsedResponse[1024];
@@ -254,7 +307,8 @@ int8_t chessServer_sendInvite(char* response, uint16_t inviteeId) {
         return REQUEST_FAILED;
 }
 
-int8_t chessServer_cancelInvite(char* response, uint16_t inviteeId) {
+int8_t chessServer_cancelInvite(char *response, uint16_t inviteeId)
+{
     sprintf(requestBody, "/user/%i/cancelinvite/%i", BOARD_ID, inviteeId);
 
     char parsedResponse[1024];
@@ -270,7 +324,8 @@ int8_t chessServer_cancelInvite(char* response, uint16_t inviteeId) {
         return REQUEST_FAILED;
 }
 
-int8_t chessServer_acceptInvite(char* response, uint16_t inviterId) {
+int8_t chessServer_acceptInvite(char *response, uint16_t inviterId)
+{
     sprintf(requestBody, "/user/%i/acceptinvite/%i", BOARD_ID, inviterId);
 
     char parsedResponse[1024];
@@ -286,7 +341,8 @@ int8_t chessServer_acceptInvite(char* response, uint16_t inviterId) {
         return REQUEST_FAILED;
 }
 
-int8_t chessServer_declineInvite(char* response, uint16_t inviterId) {
+int8_t chessServer_declineInvite(char *response, uint16_t inviterId)
+{
     sprintf(requestBody, "/user/%i/declineinvite/%i", BOARD_ID, inviterId);
 
     char parsedResponse[1024];
@@ -301,7 +357,6 @@ int8_t chessServer_declineInvite(char* response, uint16_t inviterId) {
     else
         return REQUEST_FAILED;
 }
-
 
 int8_t chessServer_getCurrentGame(char *response)
 {
@@ -326,7 +381,7 @@ int8_t chessServer_getCurrentGame(char *response)
         return REQUEST_FAILED;
 }
 
-int8_t chessServer_setName(char* response, char* newName)
+int8_t chessServer_setName(char *response, char *newName)
 {
     sprintf(requestBody, "/user/%i/setname/%s", BOARD_ID, newName);
 
@@ -334,7 +389,24 @@ int8_t chessServer_setName(char* response, char* newName)
     if (buildAndSendReq(parsedResponse))
     {
         strcpy(response, parsedResponse);
-        if (strstr(parsedResponse, "succes"))
+        if (strstr(parsedResponse, "success"))
+            return SUCCESS;
+        else
+            return INVALID_RESPONSE;
+    }
+    else
+        return REQUEST_FAILED;
+}
+
+int8_t chessServer_getName(char *response)
+{
+    sprintf(requestBody, "/user/%i/getname", BOARD_ID);
+
+    char parsedResponse[1024];
+    if (buildAndSendReq(parsedResponse))
+    {
+        strcpy(response, parsedResponse);
+        if (strstr(parsedResponse, "Name:"))
             return SUCCESS;
         else
             return INVALID_RESPONSE;
@@ -354,7 +426,8 @@ uint8_t buildAndSendReq(char *parsedResponse)
 
         return 1;
     }
-    else {
+    else
+    {
         restartWIFI();
         return 0;
     }
