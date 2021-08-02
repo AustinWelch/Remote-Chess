@@ -1,0 +1,32 @@
+{
+    "env": {
+      "myDefaultIncludePath": ["${workspaceFolder}"
+        , "${workspaceFolder}/src/**"
+        , "${workspaceFolder}/src/G8RTOS" 
+        , "${workspaceFolder}/../../lib/BoardSupportPackage/"
+        , "${workspaceFolder}/../../lib/BoardSupportPackage/DriverLib"
+        , "${workspaceFolder}/../../lib/BoardSupportPackage/inc"
+        // , "${workspaceFolder}/../../CCS/lab2/src"
+        // , "${workspaceFolder}/../../CCS/lab2/src/G8RTOS"
+        , "C:\\ti\\Code Composer Studio\\ccs\\ccs_base\\arm\\include"
+        , "C:\\ti\\Code Composer Studio\\ccs\\ccs_base\\arm\\include\\CMSIS"]
+    },
+    "configurations": [
+      {
+        "name": "Windows",
+        "intelliSenseMode": "msvc-x64",
+        "includePath": ["${myDefaultIncludePath}"],
+        "defines": ["__MSP432P401R__", "__Vendor_SysTickConfig", "__Vendor_SysTickConfig=0"],
+        "cStandard": "c11",
+        "cppStandard": "c++17",
+        // "compilerPath": "C:\\Program Files\\LLVM\\bin\\clang.exe",
+        "compilerPath": "C:\\Program Files (x86)\\Microsoft Visual Studio\\2019\\Community\\VC\\Tools\\MSVC\\14.25.28610\\bin\\Hostx64\\x64\\cl.exe",
+        "browse": {
+          "path": ["${workspaceFolder}"],
+          "limitSymbolsToIncludedHeaders": true,
+          "databaseFilename": ""
+        }
+      }
+    ],
+    "version": 4
+  }

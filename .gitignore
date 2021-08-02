@@ -84,3 +84,5 @@ Board/system_msp432p401r.c
 Board/targetConfigs/MSP432P401R.ccxml
 Board/targetConfigs/readme.txt
 Server/__pycache__/chessServer.cpython-38.pyc
+.vscode/settings.json
+.vscode/settings.json

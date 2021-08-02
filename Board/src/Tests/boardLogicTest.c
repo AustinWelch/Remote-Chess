@@ -89,7 +89,6 @@ uint32_t game()
         if(resp == SUCCESS){
             
             printf("Yours\nMake a move (back to go back to menu):\n");
-            //TODO: Dynamic move loading
             char posMov[1024];
             chessServer_getLegalMoves(posMov);
             printf(posMov);
