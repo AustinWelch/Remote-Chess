@@ -25,6 +25,7 @@ namespace RemoteChess {
             , SETTINGS
             , SETTINGS_BOARDPREFERENCES
             , SETTINGS_WIFI
+            , SETTINGS_NAMECHANGE
             , FIND_GAME
             , WAITING_ON_P2
             , JOIN_INVITE_CREATE
@@ -39,6 +40,13 @@ namespace RemoteChess {
         FSM() : curState(State::INITIAL_CONNECTION) { }
 
         std::string currentFriendName;
+        int currentFriendID;
+        flat_vector<std::string, 50> friends;
+        flat_vector<std::string, 50> incoming_friends;
+        flat_vector<std::string, 50> outgoing_friends;
+        flat_vector<int, 50> friendIDs;
+        flat_vector<int, 50> incoming_friendIDs;
+        flat_vector<int, 50> outgoing_friendIDs;
 
         State curState;
         State nextState;
@@ -48,7 +56,7 @@ namespace RemoteChess {
         bool turnReady;
 
         std::string convertToString();
-        flat_vector<std::string, 50> parseFriends(char* response);
+        void parseFriends(char* response);
 
         void InitialConnection();
         void InitialWIFIChange();
@@ -61,6 +69,7 @@ namespace RemoteChess {
         void Settings();
         void SettingsBoardPreferences();
         void SettingsWifi();
+        void SettingsNameChange();
         void FindGame();
         void WaitingForPlayer();
         void JoinInviteCreate();

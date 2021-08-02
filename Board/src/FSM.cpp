@@ -1,16 +1,15 @@
 /*
     TODO:
-    Finish Friend Invite System
-        -Currently friends are just userId 'bookmarks'
-
-    Change User's Name
-
     Standardize LCD API
 
     Make an input API, using the LCD cursor feature
         -Bind cursor to displayed list
         -Get selection value based on cursor position
         -Try to get left and right selections
+
+    Scroll thing for friends and long lists
+
+    Board keyboard function
 
     COMPLETE FSM FUNCTIONALITY
         -d e b u g
@@ -196,15 +195,17 @@ void FSM::Main_Menu() {
 void FSM::Friends() {
     char response[1024];
     int retVal = chessServer_getFriends(response);
+    parseFriends(response);
     
     if (retVal == INVALID_RESPONSE || retVal == REQUEST_FAILED) {
+        //LCD_TextOut(response)
+        //wait 3 seconds
         nextState = FSM::State::FRIENDS; 
         return;
     }
 
-    //LCD_TextOut("Friends:")
+    //LCD_TextOut(userName + " ID: " + BOARD_ID)
     //LCD_NextLine()
-    //Display own user id
 
     if (retVal == NO_FRIENDS) {
         //LCD_TextOut(response)
@@ -220,10 +221,6 @@ void FSM::Friends() {
         nextState = FSM::State::MAIN_MENU;
     }
 
-    //Process response which contains the user's friends
-    flat_vector<std::string, 50> friends = parseFriends(response);
-
-    
     //Display friends and create scrolling mechanism for more than 3 friends
 
     //If adding a friend
@@ -239,24 +236,100 @@ void FSM::Friends() {
 }
 
 void FSM::FriendsAdd() {
-    //LCD_TextOut("Enter Friend's ID")
-    //LCD_NextLine()
-    //LCD_TextOut("ID:")
+    while (true) {
+        //LCD_Clear()
+        //LCD_TextOut("Send Request")
+        //LCD_NextLine()
+        //LCD_TextOut("Incoming Requests")
+        //LCD_NextLine()
+        //LCD_TextOut("Outgoing Requests")
+        //LCD_NextLine()
+        //LCD_TextOut("Back")
 
-    //char friendID[100] = BoardKeyBoardFunction();
+        //if (buttonResp == 0)
+            //LCD_Clear()
+            //LCD_TextOut("Enter Friend's ID")
+            //LCD_NextLine()
+            //LCD_TextOut("ID: ")
+            //LCD_NextLine()
+            //char friendID[100] = BoardKeyBoardFunction();
 
-    //LCD_NextLine()
-    //LCD_TextOut("Back")
+            //if submit
+                char response[1024];
+                //int resp = chessServer_addFriend(response, std::stoi(convertToString(friendID)));
+                //LCD_Display(convertToString(response))
+                //Delay 3 Seconds
+                if (resp == INVALID_RESPONSE || resp == REQUEST_FAILED)
+                    nextState = FSM::State::FRIENDS_ADD;
+                    return;
 
-    //if submit
-        char response[1024];
-        //int resp = chessServer_addFriend(response, std::stoi(convertToString(friendID)));
-        //LCD_Display(convertToString(response))
-        //Delay 3 Seconds
-        if (resp == INVALID_RESPONSE || resp == REQUEST_FAILED)
-            nextState = FSM::State::FRIENDS_ADD;
-            return;
+            //if back
+                continue;
 
+        //if (buttonResp == 1)
+            while (true) {
+                //LCD_Clear()
+                //LCD_TextOut("Incoming Friend Requests")
+                //LCD_NextLine()
+                //Scrolling function with incoming friend reqs
+
+                //if select a friend
+                //LCD_Clear()
+                //LCD_TextOut(incoming_friends[selectionID])
+                //LCD_NextLine()
+                //LCD_TextOut("Accept")
+                //LCD_NextLine()
+                //LCD_TextOut("Decline")
+                //LCD_NextLine()
+                //LCD_TextOut("Back")
+
+                //if (buttonResp == 1) 
+                    //chessServer_acceptFriend(serverResponse, selectionID)
+                    //LCD_TextOut(serverResponse)
+                    //Wait 3 seconds
+
+                //if (buttonResp == 2) 
+                    //chessServer_declineFriend(serverResponse, selectionID)
+                    //LCD_TextOut(serverResponse)
+                    //Wait 3 seconds
+
+                //if (buttonResp == 3)
+                    break;
+
+                continue;
+            }
+
+        //if (buttonResp == 2)
+            while (true) {
+                //LCD_Clear()
+                //LCD_TextOut("Outgoing Friend Requests")
+                //LCD_NextLine()
+                //Scrolling function with outgoing friend reqs
+
+                //if select a friend
+                //LCD_Clear()
+                //LCD_TextOut(outgoing_friends[selectionID])
+                //LCD_NextLine()
+                //LCD_TextOut("Cancel")
+                //LCD_NextLine()
+                //LCD_TextOut("Back")
+                //LCD_NextLine()
+
+                //if (buttonResp == 1) 
+                    //chessServer_cancelFriend(serverResponse, selectionID)
+                    //LCD_TextOut(serverResponse)
+                    //Wait 3 seconds
+
+                //if (buttonResp == 2) 
+                    break;
+
+                continue;
+            }
+
+        //if (buttonResp == 3)
+            break;
+    }
+    
     //go back
     nextState = FSM::State::FRIENDS;
 }
@@ -299,10 +372,10 @@ void FSM::FriendsSelectInvite() {
 
         //if button is pressed
             //Cancel invite
-            //nextState = FSM::State::FriendsSelect;
+            //nextState = FSM::State::FRIENDS_SELECT;
     
     //else
-        nextState = FSM::State::FriendsSelect;
+        nextState = FSM::State::FRIENDS_SELECT;
 }
 
 void FSM::FriendsSelectRemove() {
@@ -324,6 +397,8 @@ void FSM::Settings() {
     //LCD_NextLine()
     //LCD_TextOut("WIFI")
     //LCD_NextLine()
+    //LCD_TextOut("Change Name")
+    //LCD_NextLine()
     //LCD_TextOut("Back")
     
     //Button_WaitForResp()
@@ -332,9 +407,26 @@ void FSM::Settings() {
         nextState = FSM::State::SETTINGS_BOARDPREFERENCES;
     //if (resp == 2)
         nextState = FSM::State::SETTINGS_WIFI;
-    //if (resp == 1)
+    //if (resp == 3)
+        nextState = FSM::State::SETTINGS_NAMECHANGE;
+    //if (resp == 4)
         nextState = FSM::State::MAIN_MENU;
 
+}
+
+void FSM::SettingsNameChange() {
+    //LCD_TextOut("Enter new name:")
+    //LCD_NextLine()
+    //LCD_TextOut("Back")
+    //char newName[100] = BoardKeyBoardFunction(); //Enter letters from sensors, print letters to LCD, middle button to submit
+
+    //confirm 
+        //chessServer_setName(response, newName);
+        //display resp
+        //wait 3 seconds
+
+    //if back 
+        //return;
 }
 
 void FSM::SettingsBoardPreferences() {
@@ -851,23 +943,84 @@ std::string FSM::convertToString(char* ch_a, int length) {
     return retString;    
 }
 
-flat_vector<std::string, 50> FSM::parseFriends(char* response) {
-    flat_vector<std::string, 50> friends;
+void FSM::parseFriends(char* response) {
+    FSM::friends.erase_all();
+    FSM::friendIDs.erase_all();
+    FSM::incoming_friends.erase_all();
+    FSM::incoming_friendIDs.erase_all();
+    FSM::outgoing_friends.erase_all();
+    FSM::outgoing_friendIDs.erase_all();
 
     char* pt = response + 9;
-    while (true) {
-        char* name[20];
-        int i = 0;
-        while (*pt != ','){
-            name[i] = *pt;
-            pt++; i++;
+
+    while (*pt != ';') {
+        if(*pt == 'N'){
+            pt += 10;
+            break;
         }
 
-        friends.push_back(FSM::convertToString(name, strlen(name)));
+        std::string ID[20];
+        while (*pt != ','){
+            ID += *pt;
+            pt++; 
+        }
+        FSM::friendIDs.push_back(std::stoi(ID));
+        pt++;
 
-        if (!*(++pt))
-            break;
+        std::string name[20];
+        while (*pt != ','){
+            name += *pt;
+            pt++; 
+        }
+        FSM::friends.push_back(name);
+        pt++;
     }
+    pt++;
 
-    return friends;
+    while (*pt != ';') {
+        if(*pt == 'N'){
+            pt += 16;
+            break;
+        }
+
+        std::string ID[20];
+        while (*pt != ','){
+            ID += *pt;
+            pt++; 
+        }
+        FSM::incoming_friendIDs.push_back(std::stoi(ID));
+        pt++;
+
+        std::string name[20];
+        while (*pt != ','){
+            name += *pt;
+            pt++; 
+        }
+        FSM::incoming_friends.push_back(name);
+        pt++;
+    }
+    pt++;
+
+    while (*pt != ';') {
+        if(*pt == 'N'){
+            pt += 16;
+            break;
+        }
+
+        std::string ID[20];
+        while (*pt != ','){
+            ID += *pt;
+            pt++; 
+        }
+        FSM::outgoing_friendIDs.push_back(std::stoi(ID));
+        pt++;
+
+        std::string name[20];
+        while (*pt != ','){
+            name += *pt;
+            pt++; 
+        }
+        FSM::outgoing_friends.push_back(name);
+        pt++;
+    }
 }
