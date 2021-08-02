@@ -1,6 +1,6 @@
 /*
     TODO:
-    Standardize LCD API
+    Write LCD set cursor, get cursor pos
 
     Make an input API, using the LCD cursor feature
         -Bind cursor to displayed list
@@ -25,12 +25,15 @@
 
 #include "FSM.h"
 #include "Board.h"
+#include "LCD_CharacterDisplay.h"
 
 using namespace RemoteChess;
 
+LCD_CharacterDisplay LCD;
+
 void FSM::FSMController() {
     while (true) {
-        //LCD_Clear();
+        LCD.Clear();
 
         switch (FSM::State::curState) {
             case FSM::State::INITIAL_CONNECTION:
@@ -133,10 +136,8 @@ void FSM::InitialConnection() {
     }
 
     if (attempts == 3) { 
-        //LCD_TextOut("Failed to Connect to Server.")
-        //LCD_NextLine()
-        //LCD_TextOut("-Retry -Update WIFI Credentials")
-
+        LCD.WriteMessage({ "Failed to connect to server", " Retry", " Update WIFI Credentials", "" })
+        
         //Button_WaitForResp()
 
         int resp = 0; //Button_Response();
@@ -152,13 +153,11 @@ void FSM::InitialConnection() {
 }
 
 void FSM::InitialWIFIChange() {
-    //LCD_TextOut("Enter AP Name:")
-    //LCD_NextLine()
+    LCD.WriteLine("Enter AP Name: ", 0);
     //char newAPName[100] = BoardKeyBoardFunction(); //Enter letters from sensors, print letters to LCD, middle button to submit
 
-    //LCD_NextLine()
-    //LCD_TextOut("Enter AP Name:")
-    //LCD_NextLine()
+    LCD.WriteLine("Enter AP Pass: ", 1);
+    
     //char newAPPass[100] = BoardKeyBoardFunction();
 
     //Save new credentials to flash
@@ -170,16 +169,8 @@ void FSM::InitialWIFIChange() {
 }
 
 void FSM::Main_Menu() {
-    //LCD_TextOut("Remote Chess")
-    //LCD_NextLine()
-    //LCD_TextOut("Game")
-    //LCD_NextLine()
-    //LCD_TextOut("Friends")
-    //LCD_NextLine()
-    //LCD_TextOut("Settings")
-
-    //Button_WaitForResp()
-
+    LCD.WriteMessageCenteredTitle({ "Welcome, " + userName, " Game", " Friends", " Settings" });
+    
     int resp = 0; //Button_Response();
     if (resp == 1)
         nextState = FSM::State::FIND_GAME;
@@ -198,18 +189,17 @@ void FSM::Friends() {
     parseFriends(response);
     
     if (retVal == INVALID_RESPONSE || retVal == REQUEST_FAILED) {
-        //LCD_TextOut(response)
-        //wait 3 seconds
+        LCD.WriteMessageWrapped(response);
+        DelayMs(3000);
         nextState = FSM::State::FRIENDS; 
         return;
     }
 
-    //LCD_TextOut(userName + " ID: " + BOARD_ID)
-    //LCD_NextLine()
+    LCD.WriteLineCentered("Friends   ID: " + BOARD_ID , 0);    
 
     if (retVal == NO_FRIENDS) {
         //LCD_TextOut(response)
-        //LCD_NextLine()
+        
         //LCD_TextOut("Add Friend       Friends")
 
         //Button_WaitForResp()
@@ -237,21 +227,21 @@ void FSM::Friends() {
 
 void FSM::FriendsAdd() {
     while (true) {
-        //LCD_Clear()
+        LCD.Clear();
         //LCD_TextOut("Send Request")
-        //LCD_NextLine()
+        
         //LCD_TextOut("Incoming Requests")
-        //LCD_NextLine()
+        
         //LCD_TextOut("Outgoing Requests")
-        //LCD_NextLine()
+        
         //LCD_TextOut("Back")
 
         //if (buttonResp == 0)
-            //LCD_Clear()
+            LCD.Clear();
             //LCD_TextOut("Enter Friend's ID")
-            //LCD_NextLine()
+            
             //LCD_TextOut("ID: ")
-            //LCD_NextLine()
+            
             //char friendID[100] = BoardKeyBoardFunction();
 
             //if submit
@@ -268,19 +258,19 @@ void FSM::FriendsAdd() {
 
         //if (buttonResp == 1)
             while (true) {
-                //LCD_Clear()
+                LCD.Clear();
                 //LCD_TextOut("Incoming Friend Requests")
-                //LCD_NextLine()
+                
                 //Scrolling function with incoming friend reqs
 
                 //if select a friend
-                //LCD_Clear()
+                LCD.Clear();
                 //LCD_TextOut(incoming_friends[selectionID])
-                //LCD_NextLine()
+                
                 //LCD_TextOut("Accept")
-                //LCD_NextLine()
+                
                 //LCD_TextOut("Decline")
-                //LCD_NextLine()
+                
                 //LCD_TextOut("Back")
 
                 //if (buttonResp == 1) 
@@ -301,19 +291,19 @@ void FSM::FriendsAdd() {
 
         //if (buttonResp == 2)
             while (true) {
-                //LCD_Clear()
+                LCD.Clear();
                 //LCD_TextOut("Outgoing Friend Requests")
-                //LCD_NextLine()
+                
                 //Scrolling function with outgoing friend reqs
 
                 //if select a friend
-                //LCD_Clear()
+                LCD.Clear();
                 //LCD_TextOut(outgoing_friends[selectionID])
-                //LCD_NextLine()
+                
                 //LCD_TextOut("Cancel")
-                //LCD_NextLine()
+                
                 //LCD_TextOut("Back")
-                //LCD_NextLine()
+                
 
                 //if (buttonResp == 1) 
                     //chessServer_cancelFriend(serverResponse, selectionID)
@@ -336,11 +326,11 @@ void FSM::FriendsAdd() {
 
 void FSM::FriendsSelect() {
     //LCD_TextOut(currentFriendName)
-    //LCD_NextLine()
+    
     //LCD_TextOut("Invite to Game")
-    //LCD_NextLine()
+    
     //LCD_TextOut("Remove Friend")
-    //LCD_NextLine()
+    
     //LCD_TextOut("Back")
 
     //Button_WaitForResp()
@@ -362,7 +352,7 @@ void FSM::FriendsSelectInvite() {
     //Wait 3 seconds
     //if (retVal == SUCCESS) 
         //LCD_TextOut("Waiting for 'currentFriendName' to join")
-        //LCD_NextLine()
+        
         //LCD_TextOut("Press any button to cancel")
 
         //once p2 joins
@@ -380,7 +370,7 @@ void FSM::FriendsSelectInvite() {
 
 void FSM::FriendsSelectRemove() {
     //LCD_TextOut("Are you sure you want to remove 'currentFriendName")
-    //LCD_NextLine()
+    
     //LCD_TextOut("Yes  No")
 
     //Button_WaitForResp()
@@ -392,13 +382,13 @@ void FSM::FriendsSelectRemove() {
 
 void FSM::Settings() {
     //LCD_TextOut("Settings")
-    //LCD_NextLine()
+    
     //LCD_TextOut("Board Preferences")
-    //LCD_NextLine()
+    
     //LCD_TextOut("WIFI")
-    //LCD_NextLine()
+    
     //LCD_TextOut("Change Name")
-    //LCD_NextLine()
+    
     //LCD_TextOut("Back")
     
     //Button_WaitForResp()
@@ -416,7 +406,7 @@ void FSM::Settings() {
 
 void FSM::SettingsNameChange() {
     //LCD_TextOut("Enter new name:")
-    //LCD_NextLine()
+    
     //LCD_TextOut("Back")
     //char newName[100] = BoardKeyBoardFunction(); //Enter letters from sensors, print letters to LCD, middle button to submit
 
@@ -434,11 +424,11 @@ void FSM::SettingsBoardPreferences() {
 
     while(true){
         //LCD_TextOut("Board Preferences")
-        //LCD_NextLine()
+        
         //LCD_TextOut("Assist Lights: " + assist light setting (on or off))
-        //LCD_NextLine()
+        
         //LCD_TextOut("Sound: " + sound setting)
-        //LCD_NextLine()
+        
         //LCD_TextOut("Back")
 
         //Button_WaitForResp()
@@ -460,16 +450,16 @@ void FSM::SettingsWifi() {
     nextState = FSM::State::SETTINGS;
 
     //LCD_TextOut("Enter AP Name:")
-    //LCD_NextLine()
+    
     //LCD_TextOut("Back")
     //char newAPName[100] = BoardKeyBoardFunction(); //Enter letters from sensors, print letters to LCD, middle button to submit
 
     //if back 
         //return;
 
-    //LCD_NextLine()
+    
     //LCD_TextOut("Enter AP Name:")
-    //LCD_NextLine()
+    
     //LCD_TextOut("Back")
     //char newAPPass[100] = BoardKeyBoardFunction();
 
@@ -504,7 +494,7 @@ void FSM::FindGame() {
         nextState = FSM::State::MAIN_MENU;
 
     //LCD_TextOut(response)
-    //LCD_NextLine()
+    
     //Wait 3 Seconds
 }
 
@@ -512,7 +502,7 @@ void FSM::WaitingForPlayer() {
     int retVal = chessServer_awaitTurn();
      //if (retVal == SUCCESS) 
         //LCD_TextOut("Waiting for second player to join")
-        //LCD_NextLine()
+        
         //LCD_TextOut("Press any button to cancel")
 
         //once p2 joins
@@ -528,11 +518,11 @@ void FSM::WaitingForPlayer() {
 
 void FSM::JoinInviteCreate() {
     //LCD_TextOut("Join a game")
-    //LCD_NextLine()
+    
     //LCD_TextOut("Invite friend")
-    //LCD_NextLine()
+    
     //LCD_TextOut("Create a game")
-    //LCD_NextLine()
+    
     //LCD_TextOut("Back")
     
     //Button_WaitForResp()
@@ -555,7 +545,7 @@ void FSM::Create() {
     //Wait 3 seconds
     //if (retVal == SUCCESS) 
         //LCD_TextOut("Waiting for opponent to join")
-        //LCD_NextLine()
+        
         //LCD_TextOut("Main Menu     Cancel")
 
         //once p2 joins
@@ -582,11 +572,11 @@ void FSM::Invite() {
     }
 
     //LCD_TextOut("Friends:")
-    //LCD_NextLine()
+    
 
     if (retVal == NO_FRIENDS) {
         //LCD_TextOut("You currently have no friends to invite")
-        //LCD_NextLine()
+        
         //LCD_TextOut("Back")
 
         //Button_WaitForResp()
@@ -600,9 +590,9 @@ void FSM::Invite() {
         //Friends scroll function
         //if selecting a friend to invite
             //LCD_TextOut("Invite 'currentFriendName'?")
-            //LCD_NextLine()
+            
             //LCD_TextOut("Yes")
-            //LCD_NextLine()
+            
             //LCD_TextOut("No")
             
             //Button_WaitForResp()
@@ -614,7 +604,7 @@ void FSM::Invite() {
                 //Wait 3 seconds for user to read msg
                 //if (retVal == SUCCESS) 
                     //LCD_TextOut("Waiting for 'currentFriendName' to join")
-                    //LCD_NextLine()
+                    
                     //LCD_TextOut("Press any button to cancel")
 
                     //once p2 joins
@@ -639,19 +629,19 @@ void FSM::Invite() {
 void FSM::Join() {
     while (true) {
         //LCD_TextOut("Join a Game")
-        //LCD_NextLine()
+        
         //LCD_TextOut("Invites")
-        //LCD_NextLine()
+        
         //LCD_TextOut("Game Code")
-        //LCD_NextLine()
+        
         //LCD_TextOut("Back")
 
         //Button_WaitForResp()
 
         //if (resp == 1)
-            //LCD_Clear()
+            LCD.Clear();
             //LCD_TextOut("Invites")
-            //LCD_NextLine()
+            
 
             while (true) {
                 //getPendingInvites
@@ -667,9 +657,9 @@ void FSM::Join() {
 
                     //if selected invite
                         //LCD_TextOut("Accept 'User's name' Invite?")
-                        //LCD_NextLine()
+                        
                         //LCD_TextOut("Accept       Decline")
-                        //LCD_NextLine()
+                        
                         //LCD_TextOut("Back")
 
                         //Button_WaitForResp()
@@ -697,7 +687,7 @@ void FSM::Join() {
 
                 //else 
                     //LCD_TextOut("No invites received.")
-                    //LCD_NextLine();
+                    ;
                     //LCD_TextOut("Back")
 
                     //Button_WaitForResp()
@@ -707,10 +697,10 @@ void FSM::Join() {
             }
 
         //if (resp == 2)
-            //LCD_Clear()
+            LCD.Clear();
             //LCD_TextOut("Enter Game Code")
-            //LCD_NextLine()
-            //LCD_NextLine()
+            
+            
             //LCD_TextOut("Back")
 
             //char gameCode[10] = BoardKeyBoardFunction(); //Enter characters from sensors, print characters to LCD, middle button to submit
@@ -780,16 +770,16 @@ void FSM::InGame() {
         Board::ReceiveRemoteMove(Move(from, to));
     
     while (true) {
-        //LCD_Clear()
+        LCD.Clear();
         if (gameBoard.boardFSM.GetState() == Board::BoardState::AWAITING_REMOTE_MOVE_NOTICE) {
             //G8RTOS_AddThread(AwaitTurn)
 
             while (!turnReady) {
                 //LCD_TextOut("Waiting for Opponent's Turn...")
-                //LCD_NextLine()
-                //LCD_NextLine()
+                
+                
                 //LCD_TextOut("Board Preferences")
-                //LCD_NextLine()
+                
                 //LCD_TextOut("Leave Game")
 
                 //if (button_Resp()) {
@@ -813,9 +803,9 @@ void FSM::InGame() {
         else if (gameBoard.boardFSM.GetState() == Board::BoardState::AWAITING_LOCAL_MOVE) {
             std::string liftedPieceName = "";
             while (true) {
-                //LCD_Clear()
+                LCD.Clear();
                 //LCD_TextOut("Your Turn")
-                //LCD_NextLine();
+                ;
                 
                 liftedPieceName = gameBoard.GetLiftedPieceName();
 
@@ -824,20 +814,20 @@ void FSM::InGame() {
                 else    
                     //LCD_TextOut("Move " + liftedPieceName)
 
-                //LCD_NextLine();
+                ;
                 //LCD_TextOut("Board Preferences")
-                //LCD_NextLine();
+                ;
                 //LCD_TextOut("Back")
 
                 //if (button_Resp())
                     //if (resp == 1 && liftedPieceName.size() != 0)
-                        //LCD_Clear()
+                        LCD.Clear();
                         //if not valid
                             //say so
                         //LCD_TextOut("Would you like to move your " + liftedPieceName + "?")
-                        //LCD_NextLine();
+                        ;
                         //LCD_TextOut("Yes")
-                        //LCD_NextLine();
+                        ;
                         //LCD_TextOut("No")
 
                         //button_waitForResp()
@@ -847,14 +837,14 @@ void FSM::InGame() {
                             //int retVal = chessServer_makeMove(move);
 
                             //if successful
-                                //LCD_Clear()
+                                LCD.Clear();
                                 //LCD_TextOut("Sent Move!")
                                 gameBoard.SubmitCurrentLocalMove();
                                 //wait 3 seconds
                                 //return;
 
                             //else
-                                //LCD_Clear()
+                                LCD.Clear();
                                 //LCD_TextOut("Something went wrong, try again")
                                 //wait 3 seconds
                                 //continue;
@@ -887,11 +877,11 @@ void FSM::InGameBoardPreferences() {
 
     while(true) {
         //LCD_TextOut("Board Preferences")
-        //LCD_NextLine()
+        
         //LCD_TextOut("Assist Lights: " + assist light setting (on or off))
-        //LCD_NextLine()
+        
         //LCD_TextOut("Sound: " + sound setting)
-        //LCD_NextLine()
+        
         //LCD_TextOut("Back")
 
         //Button_WaitForResp()
@@ -911,15 +901,15 @@ void FSM::InGameBoardPreferences() {
 
 void FSM::LeaveGame() {
     //LCD_TextOut("Leave Game?")
-    //LCD_NextLine()
+    
     //LCD_TextOut("Yes")
-    //LCD_NextLine()
+    
     //LCD_TextOut("No")
     
     //Button_WaitForResp()
 
     //if (resp == 1)
-        //LCD_Clear()
+        LCD.Clear();
         //LCD_TextOut("Leaving Game...")
         nextState = FSM::State::MAIN_MENU;
         while (true) {
