@@ -1,4 +1,4 @@
-#include "boardLogic.h"
+#include "boardLogicTest.h"
 
 int main(){
 

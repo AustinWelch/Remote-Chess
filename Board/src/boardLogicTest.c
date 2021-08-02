@@ -185,9 +185,9 @@ uint32_t friends()
         char serverResp[1024];
         scanf("%s", friendIdStr);
 
-        uint16_t friendId = strtol(friendIdStr, friendIdStr + 31, 20);
+        //uint16_t friendId = strtol(friendIdStr, friendIdStr + 31, 20);
 
-        chessServer_addFriend(serverResp, friendId);
+        //chessServer_addFriend(serverResp, friendId);
         printf(serverResp);
         return FRIENDS;
     }
