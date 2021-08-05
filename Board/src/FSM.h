@@ -41,12 +41,17 @@ namespace RemoteChess {
 
         std::string currentFriendName;
         int currentFriendID;
+
         flat_vector<std::string, 50> friends;
         flat_vector<std::string, 50> incoming_friends;
         flat_vector<std::string, 50> outgoing_friends;
         flat_vector<int, 50> friendIDs;
         flat_vector<int, 50> incoming_friendIDs;
         flat_vector<int, 50> outgoing_friendIDs;
+
+        flat_vector<int, 50> inviterIDs;
+        flat_vector<int, 50> inviteGameCode;
+        flat_vector<int, 50> inviterNames;
 
         State curState;
         State nextState;
@@ -56,7 +61,9 @@ namespace RemoteChess {
         bool turnReady;
 
         std::string convertToString();
+        void convertToChar(std::string str, char* out);
         void parseFriends(char* response);
+        void FSM::parseInvites(char* response);
 
         void InitialConnection();
         void InitialWIFIChange();
