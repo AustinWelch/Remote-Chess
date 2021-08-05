@@ -284,7 +284,9 @@ int8_t chessServer_getInvites(char *response)
         if (strstr(parsedResponse, "Invites"))
             return SUCCESS;
         else if (strstr(parsedResponse, "No invites"))
-            return NO_INVITES else return INVALID_RESPONSE;
+            return NO_INVITES 
+        else 
+            return INVALID_RESPONSE;
     }
     else
         return REQUEST_FAILED;
