@@ -35,7 +35,10 @@ namespace RemoteChess {
         static const uint8_t BACKLIGHT_ON = 0x08;
         static const uint8_t BACKLIGHT_OFF = 0x00;
 
-
+        enum class CursorJustify {
+              LEFT
+            , RIGHT
+        };
 
         enum class Command {
               CLEAR_DISPLAY   = 0x01
@@ -61,6 +64,10 @@ namespace RemoteChess {
         void WriteMessageWrapped(const char* msg) const;
         void WriteLine(const char* msg, uint8_t line) const;
         void WriteLineCentered(const char* msg, uint8_t line) const;
+        void WriteLineMenuLeft(const char* msg, uint8_t line) const;       
+        void WriteLineMenuRight(const char* msg, uint8_t line) const;
+        void DrawCursor(uint8_t line, CursorJustify justification, uint8_t prevLine, CursorJustify prevJustification);
+        void WriteChar(const char ch, uint8_t pos) const;
         void EnableBacklight();
         void DisableBacklight();
 

@@ -90,6 +90,49 @@ void LCD_CharacterDisplay::WriteLine(const char* msg, uint8_t line) const {
     }
 }
 
+void LCD_CharacterDisplay::WriteLineMenuLeft(const char* msg, uint8_t line) const {
+    static uint8_t lineAddresses[4] = { 0x01, 0x41, 0x15, 0x55 };
+
+    WriteCommand(Command::SET_DDRAM_ADDR, lineAddresses[line]);
+
+    for (uint8_t i = 0; i < 20; i++) {
+        if (msg[i] == '\0') break;
+
+        WriteCommand(Command::WRITE_DATA, msg[i]); 
+    }
+}
+
+void LCD_CharacterDisplay::WriteLineMenuRight(const char* msg, uint8_t line) const {
+    static uint8_t lineAddresses[4] = { 0x0C, 0x4C, 0x20, 0x60 };
+
+    WriteCommand(Command::SET_DDRAM_ADDR, lineAddresses[line]);
+
+    for (uint8_t i = 0; i < 20; i++) {
+        if (msg[i] == '\0') break;
+
+        WriteCommand(Command::WRITE_DATA, msg[i]); 
+    }
+}
+
+void LCD_CharacterDisplay::DrawCursor(uint8_t line, CursorJustify justification, uint8_t prevLine, CursorJustify prevJustification) {
+    static uint8_t cursorAddresses[8] = { 0x00, 0x40, 0x14, 0x54, 0x0B, 0x4B, 0x1F, 0x5F};
+
+    if (prevJustification == CursorJustify::LEFT)
+        WriteChar(' ', cursorAddresses[prevLine]);
+    else 
+        WriteChar(' ', cursorAddresses[prevLine + 4]);
+
+    if (justification == CursorJustify::LEFT)
+        WriteChar('>', cursorAddresses[line]);
+    else 
+        WriteChar('>', cursorAddresses[line + 4]);
+}
+
+void LCD_CharacterDisplay::WriteChar(const char ch, uint8_t pos) const {
+    WriteCommand(Command::SET_DDRAM_ADDR, pos);
+    WriteCommand(Command::WRITE_DATA, ch); 
+}
+
 void LCD_CharacterDisplay::WriteLineCentered(const char* msg, uint8_t line) const {
     static uint8_t lineCentersAddresses[4] = { 0x0A, 0x4A, 0x1E, 0x5E };
     uint8_t offset = strlen(msg) / 2;
