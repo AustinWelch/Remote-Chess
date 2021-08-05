@@ -21,7 +21,7 @@ namespace RemoteChess {
         WHITE, BLACK
     };
 
-	class Board {
+	class ChessBoard {
         enum class BoardState {
               AWAITING_LOCAL_MOVE
             , AWAITING_REMOTE_MOVE_NOTICE
@@ -73,6 +73,8 @@ namespace RemoteChess {
         void PlacePiece(const Cell& location);
 
         std::string GetLiftedPieceName() const;
+        Cell GetLiftedPiecePos() const;
+        Cell GetPlacedPiecePos() const;
         
         void SubmitCurrentLocalMove();
         void ReceiveRemoteMove(const Move& move);
