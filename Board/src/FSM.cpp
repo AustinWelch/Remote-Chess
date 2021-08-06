@@ -862,6 +862,12 @@ void FSM::InGame() {
                 lcd.WriteLineCentered("opponent's move...", 1);
                 lcd.WriteLineCentered("Board Pref.   Leave", 3);
 
+                //Instance of the "on demand" button mapping:
+                //Since trying to menu and poll the server at the same time can get messy,
+                //this essentially takes a left or right button input, and instantly moves on
+
+                //Reenabling interrupts
+                //Fix once ports remapped
                 P8->IFG = 0;
                 P8->IE |= BIT3 | BIT4 | BIT5 | BIT6 | BIT7;
 
@@ -987,7 +993,6 @@ void FSM::InGame() {
 }
 
 void FSM::InGameBoardPreferences() {
-    //TODO: initialize variables in ChessBoard for lights and sound, load those settings form flash and just change runtime and write here
     //Write current setting next to menu selection 
 
     while(true){
@@ -1161,4 +1166,11 @@ void FSM::parseInvites(char* response) {
         FSM::inviteGameCode.push_back(std::stoi(gameCode));
         pt++;
     }
+}
+
+void PORT8_IRQHandler() {
+    menu.setButtonInput(P8->IFG);
+
+    P8->IFG &= ~(BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
+    P8->IE &= ~(BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
 }
