@@ -373,7 +373,12 @@ int8_t chessServer_getCurrentGame(char *response)
         char *pt = strstr(parsedResponse, "code:");
         if (pt)
         {
-            strcpy(gameCode, pt + 6);
+            char* tempCode[6];
+            for (uint8_t i = 0; i < 6; i++) {
+                tempCode[i] = *pt; 
+                pt++;
+            }
+            strcpy(gameCode, tempCode);
             return SUCCESS;
         }
         else if (strstr(parsedResponse, "not"))

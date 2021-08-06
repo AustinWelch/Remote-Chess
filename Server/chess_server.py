@@ -69,7 +69,13 @@ def get_game(boardid):
         if(ongoing_game == ''):
             return '<span style="white-space: pre-wrap">Not in a game.</span>'
         else:
-            return '<span style="white-space: pre-wrap">Game code: ' + ongoing_game + '</span>'
+            game = db.collection('chess').document('games').collection('games').document(ongoing_game).get().to_dict()
+            print(boardid)
+            if (boardid == str(game['player1_id'])):
+                player_color = 'WHITE'
+            else:
+                player_color = 'BLACK'
+            return '<span style="white-space: pre-wrap">Game code: ' + ongoing_game + ' ' + player_color + '</span>'
     except:
         return '<span style="white-space: pre-wrap">User does not exist!</span>'
 
@@ -419,10 +425,16 @@ def get_board(game_code):
 def is_turn_ready(game_code, user_id):
     try:
         game = db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()
+        if (game['player1_id'] != user_id and game['player2_id'] != user_id):
+            return '<span style="white-space: pre-wrap">You are not in this game</span>'
+
         if (game['players_joined'] == 1):
             return '<span style="white-space: pre-wrap">Waiting for opponent to join</span>'
         elif (game['players_turn'] == user_id):
-            return '<span style="white-space: pre-wrap">Turn Ready</span>'
+            last_move = db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()['lastmove']
+            if (len(last_move) == 0):
+                last_move = '-'
+            return '<span style="white-space: pre-wrap">Turn Ready - Last Move: ' + last_move + '</span>'
         else:
             return '<span style="white-space: pre-wrap">Turn Not Ready</span>'
     except:
