@@ -54,7 +54,7 @@ def set_name(boardid, new_name):
 
 
 @app.route('/user/<boardid>/getname')
-def set_name(boardid, new_name):
+def get_name(boardid, new_name):
     try:
         name = db.collection('chess').document('users').collection('users').document(boardid).get().to_dict()['name']
         return '<span style="white-space: pre-wrap">Name: ' + name + '</span>'

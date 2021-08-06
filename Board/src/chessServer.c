@@ -144,13 +144,15 @@ int8_t chessServer_deleteGame(char *response)
         return REQUEST_FAILED;
 }
 
-int8_t chessServer_awaitTurn()
+int8_t chessServer_awaitTurn(char* response)
 {
     sprintf(requestBody, "/game/%s/turnready/%i", gameCode, BOARD_ID);
 
     char parsedResponse[1024];
     if (buildAndSendReq(parsedResponse))
     {
+        strcpy(response, parsedResponse);
+
         if (strstr(parsedResponse, "Turn Ready"))
             return SUCCESS;
         else if (strstr(parsedResponse, "join"))
@@ -284,7 +286,9 @@ int8_t chessServer_getInvites(char *response)
         if (strstr(parsedResponse, "Invites"))
             return SUCCESS;
         else if (strstr(parsedResponse, "No invites"))
-            return NO_INVITES else return INVALID_RESPONSE;
+            return NO_INVITES;
+        else 
+            return INVALID_RESPONSE;
     }
     else
         return REQUEST_FAILED;

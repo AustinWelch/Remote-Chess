@@ -1,0 +1,14 @@
+BoardSupportPackage/ferris/BSP.obj: C:/Users/myaka/OneDrive\\ -\\ University\\ of\\ Florida/EEL4745\\ -\\ Microp\\ 2/lib/BoardSupportPackage/ferris/BSP.c
+BoardSupportPackage/ferris/BSP.obj: C:\Users\myaka\OneDrive\\ -\\ University\\ of\\ Florida\EEL4745\\ -\\ Microp\\ 2\lib\BoardSupportPackage\ferris\BSP.h
+BoardSupportPackage/ferris/BSP.obj: C:/Users/myaka/OneDrive\\ -\\ University\\ of\\ Florida/EEL4745\\ -\\ Microp\\ 2/lib/BoardSupportPackage/ferris/uart.h
+BoardSupportPackage/ferris/BSP.obj: C:/Users/myaka/OneDrive\\ -\\ University\\ of\\ Florida/EEL4745\\ -\\ Microp\\ 2/lib/BoardSupportPackage/ferris/RGBLED.h
+BoardSupportPackage/ferris/BSP.obj: C:/ti/Code\\ Composer\\ Studio/ccs/tools/compiler/ti-cgt-arm_20.2.2.LTS/include/stdint.h
+BoardSupportPackage/ferris/BSP.obj: C:/ti/Code\\ Composer\\ Studio/ccs/tools/compiler/ti-cgt-arm_20.2.2.LTS/include/_ti_config.h
+BoardSupportPackage/ferris/BSP.obj: C:/ti/Code\\ Composer\\ Studio/ccs/tools/compiler/ti-cgt-arm_20.2.2.LTS/include/linkage.h
+BoardSupportPackage/ferris/BSP.obj: C:/ti/Code\\ Composer\\ Studio/ccs/tools/compiler/ti-cgt-arm_20.2.2.LTS/include/_stdint40.h
+BoardSupportPackage/ferris/BSP.obj: C:/ti/Code\\ Composer\\ Studio/ccs/tools/compiler/ti-cgt-arm_20.2.2.LTS/include/sys/stdint.h
+BoardSupportPackage/ferris/BSP.obj: C:/ti/Code\\ Composer\\ Studio/ccs/tools/compiler/ti-cgt-arm_20.2.2.LTS/include/sys/cdefs.h
+BoardSupportPackage/ferris/BSP.obj: C:/ti/Code\\ Composer\\ Studio/ccs/tools/compiler/ti-cgt-arm_20.2.2.LTS/include/sys/_types.h
+BoardSupportPackage/ferris/BSP.obj: C:/ti/Code\\ Composer\\ Studio/ccs/tools/compiler/ti-cgt-arm_20.2.2.LTS/include/machine/_types.h
+BoardSupportPackage/ferris/BSP.obj: C:/ti/Code\\ Composer\\ Studio/ccs/tools/compiler/ti-cgt-arm_20.2.2.LTS/include/machine/_stdint.h
+BoardSupportPackage/ferris/BSP.obj: C:/ti/Code\\ Composer\\ Studio/ccs/tools/compiler/ti-cgt-arm_20.2.2.LTS/include/sys/_stdint.h

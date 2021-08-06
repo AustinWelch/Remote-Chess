@@ -2,13 +2,13 @@
 
 #include <cstdio>
 #include "LedMatrix.h"
+#include "MagneticSensors.h"
 #include "optional.h"
 #include "flat_vector.h"
 #include "flat_unordered_set.h"
 #include "Move.h"
 #include <unordered_set>
 #include <string>
-#include <iostream>
 
 extern "C" {
     #include "chessServer.h"
@@ -21,17 +21,20 @@ namespace RemoteChess {
         WHITE, BLACK
     };
 
-	class Board {
+	class ChessBoard {
+	    public:
         enum class BoardState {
               AWAITING_LOCAL_MOVE
             , AWAITING_REMOTE_MOVE_NOTICE
             , AWAITING_REMOTE_MOVE_FOLLOWTHROUGH
         };
 
+	    private:
         class BoardFSM {
             BoardState curState;
 
             public:
+            BoardFSM() : curState(BoardState::AWAITING_LOCAL_MOVE) {}
             BoardFSM(BoardState initialState) : curState(initialState) { }
             BoardState GetState() const;
 
@@ -49,6 +52,7 @@ namespace RemoteChess {
         BoardFSM boardFSM;
 		LedMatrix ledMatrix;
         PlayerColor playerColor;
+        MagneticSensors magneticSensors;
 
         RemoteChess::optional<Cell> liftedPiece;
         RemoteChess::optional<Cell> placedPiece;
@@ -66,25 +70,34 @@ namespace RemoteChess {
 
 
 		public:
-
-		Board(PlayerColor color, BoardState state);
+        ChessBoard();
+		ChessBoard(PlayerColor color, BoardState state);
 
         void LiftPiece(const Cell& location);
         void PlacePiece(const Cell& location);
 
         std::string GetLiftedPieceName() const;
+        Cell GetLiftedPiecePos() const;
+        Cell GetPlacedPiecePos() const;
         
+        RemoteChess::flat_unordered_set<Cell, 64> GetInvalidLifts();
+        RemoteChess::flat_unordered_set<Cell, 64> GetInvalidPlacements();
+
+        BoardState GetBoardState() const;
+
         void SubmitCurrentLocalMove();
         void ReceiveRemoteMove(const Move& move);
 
         void UpdateLedMatrix();
+        void UpdateMagneticSensors();
 
         RemoteChess::flat_vector<Cell, 32> GetLegalMovesPiece(const Cell& origin) const;
         RemoteChess::flat_vector<Cell, 8> GetAttackingMovesPiece(const Cell& origin) const;
-        std::string Board::GetPieceName(const Cell& cell) const;
+        std::string GetPieceName(const Cell& cell) const;
         void GetLegalMovesAll();
 
         private:
+        void HighlightPieceYellow(const Cell& cell);
         void DrawRemoteMove();
         void CompleteRemoteMoveFollowthrough();
         bool CanLiftPiece(const Cell& origin) const;
