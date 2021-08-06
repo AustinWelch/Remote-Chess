@@ -1,8 +1,9 @@
 /*
     TODO:
     Finish up main FSM
+        -kill strings
         -d e b u g
-        -Put FSM code in switch statement?
+        -Change "on demand" button mappings
 
     Board keyboard function
 
@@ -889,10 +890,12 @@ void FSM::InGame() {
                     char response[64];
                     int8_t retVal = chessServer_awaitTurn(response);
 
-                    char* pt = response + 24;
-
                     if (retVal == SUCCESS) {
-                       break;
+                        char *pt = response + 24; 
+                        from = Cell(*(pt) - 97, *(pt + 1) - 49);
+                        to = Cell(*(pt + 2) - 97, *(pt + 3) - 49);
+                        gameBoard.ReceiveRemoteMove(Move(from, to));
+                        break;
                     }
                 }
             }
