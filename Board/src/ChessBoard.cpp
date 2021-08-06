@@ -1,9 +1,8 @@
 #include "ChessBoard.h"
 #include <algorithm>
-#include <utility>
+#include "msp.h"
 
 using namespace RemoteChess;
-using namespace std;
 
 ChessBoard::ChessBoard() {
     playerColor = PlayerColor::WHITE;
@@ -18,13 +17,13 @@ ChessBoard::ChessBoard(PlayerColor color, ChessBoard::BoardState state) {
 void ChessBoard::LiftPiece(const Cell& cell) {
 	G8RTOS_AcquireSemaphore(&boardSem);
 
-	if (boardFSM.CanMakeLocalMove()) {
+	if (invalidPlacements.contains(cell)) {
+		// Lifting up a piece that was placed invalidly
+		invalidPlacements.erase(cell);
+	} else if (boardFSM.CanMakeLocalMove()) {
 		if (cell == placedPiece) {
 			// Check for if lifting up a piece that was previously legally placed before confirming move with button
 			placedPiece = nullptr;
-		} else if (invalidPlacements.contains(cell)) {
-			// Lifting up a piece that was placed invalidly
-			invalidPlacements.erase(cell);
 		} else if (CanLiftPiece(cell) && liftedPiece == nullptr) {
 			// Check that the piece is legally moveable and we haven't already lifted another piece
 			liftedPiece = cell;
@@ -45,11 +44,14 @@ void ChessBoard::LiftPiece(const Cell& cell) {
 void ChessBoard::PlacePiece(const Cell& cell) {
 	G8RTOS_AcquireSemaphore(&boardSem);
 
-	if (liftedPiece == nullptr) {
+	if (invalidLifts.contains(cell)) {
+		// Placed a piece back down when it was illegally lifted
+		invalidLifts.erase(cell);
+	} else if (liftedPiece == nullptr) {
 		// Unexpected piece placed without lifting anything
 		invalidPlacements.insert(cell);
 	} else {
-		if (boardFSM.CanMakeLocalMove()) {
+		if (fsm.CanMakeLocalMove()) {
 			if (cell == liftedPiece) {
 				// Placing a lifted piece back where it started
 				liftedPiece = nullptr;
@@ -59,9 +61,6 @@ void ChessBoard::PlacePiece(const Cell& cell) {
 				if (legalMoves.contains(cell)) {
 					// Placed a valid move for the lifted piece
 					placedPiece = cell;
-				} else if (invalidLifts.contains(cell)) {
-					// Placed a piece back down when it was illegally lifted
-					invalidLifts.erase(cell);
 				} else {
 					// Placed an illegal move for the lifted piece
 					invalidPlacements.insert(cell);
@@ -94,7 +93,7 @@ RemoteChess::flat_vector<Cell, 8> ChessBoard::GetAttackingMovesPiece(const Cell&
 	return allAttackingMoves[pos];
 }
 
-std::string ChessBoard::GetPieceName(const Cell& cell) const {
+std::stringw ChessBoard::GetPieceName(const Cell& cell) const {
     int pos = ((cell.rank - 1) * 8 + (cell.file - 1));
 	return pieceNames[pos];
 }
@@ -212,6 +211,10 @@ void ChessBoard::DrawRemoteMove() {
 	}
 }
 
+void Board::UpdateMagneticSensors() {
+	magneticSensors.UpdateMagnetValuesAndPropagate(*this);
+}
+
 void ChessBoard::UpdateLedMatrix() {
 	G8RTOS_AcquireSemaphore(&boardSem);
 
@@ -238,7 +241,7 @@ void ChessBoard::UpdateLedMatrix() {
 				ledMatrix.SetCell(lastLocalMove->to, Colors::MAGENTA);
 			}
 
-			break; //TODO: break statement was missing, remove if intentional
+			break;
 		case BoardState::AWAITING_REMOTE_MOVE_FOLLOWTHROUGH:
 			if (!liftedPiece) {
 				ledMatrix.SetCell(lastRemoteMove->from, Colors::MAGENTA);
@@ -260,6 +263,47 @@ void ChessBoard::UpdateLedMatrix() {
 		ledMatrix.SetCell(cell, Colors::RED);
 	}
 
+// magneticSensors.UpdateMagnetValuesAndPropagate(*this);
+
+	// auto magnetValues = magneticSensors.GetCurrentMagnetValues();
+
+	// for (uint8_t file = 0; file < 8; file++) {
+	// 	for (uint8_t rank = 0; rank < 8; rank++) {
+	// 		if (magnetValues[file][rank])
+	// 			ledMatrix.SetCell(Cell(file, rank), Colors::YELLOW);
+	// 	}
+	// }
+
+	// for (uint8_t muxSel = 0; muxSel < 8; muxSel++) {
+	// 	P5->OUT = muxSel;
+
+	// 	G8RTOS_SleepThread(1);
+
+	// 	if (!(P2->IN & BIT7))
+	// 		ledMatrix.SetCell(Cell(ConvertMuxSelToFile(muxSel), 0), Colors::YELLOW);
+		
+	// 	if (!(P2->IN & BIT6))
+	// 		ledMatrix.SetCell(Cell(ConvertMuxSelToFile(muxSel), 1), Colors::YELLOW);
+		
+	// 	if (!(P2->IN & BIT5))
+	// 		ledMatrix.SetCell(Cell(ConvertMuxSelToFile(muxSel), 2), Colors::YELLOW);
+		
+	// 	if (!(P2->IN & BIT4))
+	// 		ledMatrix.SetCell(Cell(ConvertMuxSelToFile(muxSel), 3), Colors::YELLOW);
+		
+	// 	if (!(P2->IN & BIT3))
+	// 		ledMatrix.SetCell(Cell(ConvertMuxSelToFile(muxSel), 4), Colors::YELLOW);
+		
+	// 	if (!(P4->IN & BIT7))
+	// 		ledMatrix.SetCell(Cell(ConvertMuxSelToFile(muxSel), 5), Colors::YELLOW);
+		
+	// 	if (!(P4->IN & BIT6))
+	// 		ledMatrix.SetCell(Cell(ConvertMuxSelToFile(muxSel), 6), Colors::YELLOW);
+		
+	// 	if (!(P4->IN & BIT5))
+	// 		ledMatrix.SetCell(Cell(ConvertMuxSelToFile(muxSel), 7), Colors::YELLOW);
+	// }
+	
 	ledMatrix.Refresh();
 
 	G8RTOS_ReleaseSemaphore(&boardSem);

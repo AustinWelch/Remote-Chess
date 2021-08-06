@@ -1,0 +1,6 @@
+BoardSupportPackage/src/AsciiLib.obj: C:/Users/myaka/OneDrive\\ -\\ University\\ of\\ Florida/EEL4745\\ -\\ Microp\\ 2/lib/BoardSupportPackage/src/AsciiLib.c
+BoardSupportPackage/src/AsciiLib.obj: C:/Users/myaka/OneDrive\\ -\\ University\\ of\\ Florida/EEL4745\\ -\\ Microp\\ 2/lib/BoardSupportPackage/inc/AsciiLib.h
+BoardSupportPackage/src/AsciiLib.obj: C:/ti/Code\\ Composer\\ Studio/ccs/tools/compiler/ti-cgt-arm_20.2.2.LTS/include/string.h
+BoardSupportPackage/src/AsciiLib.obj: C:/ti/Code\\ Composer\\ Studio/ccs/tools/compiler/ti-cgt-arm_20.2.2.LTS/include/_ti_config.h
+BoardSupportPackage/src/AsciiLib.obj: C:/ti/Code\\ Composer\\ Studio/ccs/tools/compiler/ti-cgt-arm_20.2.2.LTS/include/linkage.h
+BoardSupportPackage/src/AsciiLib.obj: C:/ti/Code\\ Composer\\ Studio/ccs/tools/compiler/ti-cgt-arm_20.2.2.LTS/include/sys/cdefs.h

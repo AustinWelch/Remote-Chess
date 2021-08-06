@@ -2,13 +2,13 @@
 
 #include <cstdio>
 #include "LedMatrix.h"
+#include "MagneticSensors.h"
 #include "optional.h"
 #include "flat_vector.h"
 #include "flat_unordered_set.h"
 #include "Move.h"
 #include <unordered_set>
 #include <string>
-#include <iostream>
 
 extern "C" {
     #include "chessServer.h"
@@ -52,6 +52,7 @@ namespace RemoteChess {
         BoardFSM boardFSM;
 		LedMatrix ledMatrix;
         PlayerColor playerColor;
+        MagneticSensors magneticSensors;
 
         RemoteChess::optional<Cell> liftedPiece;
         RemoteChess::optional<Cell> placedPiece;
@@ -88,6 +89,7 @@ namespace RemoteChess {
         void ReceiveRemoteMove(const Move& move);
 
         void UpdateLedMatrix();
+        void UpdateMagneticSensors();
 
         RemoteChess::flat_vector<Cell, 32> GetLegalMovesPiece(const Cell& origin) const;
         RemoteChess::flat_vector<Cell, 8> GetAttackingMovesPiece(const Cell& origin) const;
@@ -95,6 +97,7 @@ namespace RemoteChess {
         void GetLegalMovesAll();
 
         private:
+        void HighlightPieceYellow(const Cell& cell);
         void DrawRemoteMove();
         void CompleteRemoteMoveFollowthrough();
         bool CanLiftPiece(const Cell& origin) const;

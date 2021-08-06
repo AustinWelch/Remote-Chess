@@ -4,15 +4,17 @@ extern "C" {
 	#include <stdio.h>
 	#include "G8RTOS_CriticalSection.h"
 	#include "G8RTOS.h"
+	#include "chessServer.h"
 }
 
-#include <iostream>
-#include "ChessBoard.h"
+#include <src/ChessBoard.h>
+#include "MagneticSensors.h"
+#include "LCD_CharacterDisplay.h"
+#include "ButtonInterface.h"
 
 using namespace RemoteChess;
-using namespace std;
 
-RemoteChess::ChessBoard g_board(PlayerColor::WHITE, ChessBoard::BoardState::AWAITING_LOCAL_MOVE);
+RemoteChess::Board g_board(PlayerColor::WHITE);
 
 void IdleThread() {
 	while (true) { }
@@ -38,9 +40,15 @@ void FlashThread() {
 }
 
 void MagnetThread() {
-	G8RTOS_SleepThread(1000);
-	g_board.LiftPiece(Cell(1, 1));
-	G8RTOS_SleepThread(1000);
+	while (true) {
+		g_board.UpdateMagneticSensors();
+
+		G8RTOS_SleepThread(20);
+	}
+
+	// G8RTOS_SleepThread(1000);
+	// g_board.LiftPiece(Cell(1, 1));
+	// G8RTOS_SleepThread(1000);
 	// g_board.PlacePiece(Cell(1, 1));
 	// G8RTOS_SleepThread(1000);
 	// g_board.LiftPiece(Cell(1, 1));
@@ -53,73 +61,81 @@ void MagnetThread() {
 	// G8RTOS_SleepThread(1000);
 	// g_board.LiftPiece(Cell(1, 3));
 	// G8RTOS_SleepThread(1000);
-	g_board.PlacePiece(Cell(1, 3));
+	// g_board.PlacePiece(Cell(1, 3));
 	// G8RTOS_SleepThread(1000);
 	// g_board.LiftPiece(Cell(5, 1));
 	// G8RTOS_SleepThread(1000);
 	// g_board.PlacePiece(Cell(5, 1));
 
-	G8RTOS_SleepThread(1000);
-	g_board.SubmitCurrentLocalMove();
+	// G8RTOS_SleepThread(1000);
+	// g_board.SubmitCurrentLocalMove();
 
-	G8RTOS_SleepThread(1000);
-	g_board.ReceiveRemoteMove(Move(Cell(4, 6), Cell(4, 4)));
+	// G8RTOS_SleepThread(1000);
+	// g_board.ReceiveRemoteMove(Move(Cell(4, 6), Cell(4, 4)));
 
-	G8RTOS_SleepThread(1000);
-	g_board.LiftPiece(Cell(4, 6));
+	// G8RTOS_SleepThread(1000);
+	// g_board.LiftPiece(Cell(4, 6));
 
-	G8RTOS_SleepThread(1000);
-	g_board.PlacePiece(Cell(4, 4));
-	
-	G8RTOS_KillSelf();
+	// G8RTOS_SleepThread(1000);
+	// g_board.PlacePiece(Cell(4, 4));
+
+	// G8RTOS_KillSelf();
 }
 
 void BoardLedUpdateThread() {
 	while (true) {
 		g_board.UpdateLedMatrix();
 
-		G8RTOS_SleepThread(100);
+		G8RTOS_SleepThread(20);
 	}
 }
 
-void test() {
-    while(true) {
+void LCD_Thread() {
+	G8RTOS_SleepThread(50);
 
-        g_board.GetLegalMovesAll();
-        int col, row;
-        while(true){
-            std::cout << "Enter col" << std::endl;
-            std::cin >> col;
-            std::cout << "Enter row" << std::endl;
-            std::cin >> row;
+	LCD_CharacterDisplay lcd;
 
-            auto validMoves = g_board.GetLegalMovesPiece(Cell(col, row));
-            std::string name = g_board.GetPieceName(Cell(col, row));
-            cout << name << endl;
+	lcd.EnableBacklight();
+	lcd.WriteMessage({ "This is line 1!", "Here lies line 2", "Hello from line 3!", "Where is line 4?" });
+	
+	ButtonInterface buttons;
 
-            auto it = validMoves.begin();
-            for(; it != validMoves.end(); it++){
-                cout << "Col: " << char(it->file + 48) << " Row: " << char(it->rank + 48) << endl;
-            }
-        }
-    }
+	while (true) {
+		ButtonState btnState = buttons.GetCurrentButtonState();
+
+		lcd.WriteLine(btnState.up ? "UP" : "        ", 0);
+		lcd.WriteLine(btnState.down ? "DOWN" : "        ", 1);
+		lcd.WriteLine(btnState.left ? "LEFT" : "        ", 2);
+
+		if (btnState.right && btnState.center)
+			lcd.WriteLine("RIGHT  CENTER", 3);
+		else if (btnState.right)
+			lcd.WriteLine("RIGHT             ", 3);
+		else if (btnState.center)
+			lcd.WriteLine("       CENTER     ", 3);
+		else
+			lcd.WriteLine("                  ", 3);
+
+		G8RTOS_SleepThread(50);
+	}
 }
 
 void main(void) {
 	BSP_InitBoard();
 
-	test();
+	printf("Hello, world!\r\n");
+
+	printf("Starting wifi...\r\n");
+	chessServer_init(KEEP_CONNECTION);
 
 	G8RTOS_Init();
 
 	// G8RTOS_AddThread(FlashThread, 4, "Flash");
-	//G8RTOS_AddThread(MagnetThread, 2, "MagnetThread");
-	//G8RTOS_AddThread(BoardLedUpdateThread, 4, "LedThread");
-	G8RTOS_AddThread(test, 4, "Test"); //sprintf doesnt work in G8RTOS
+	G8RTOS_AddThread(MagnetThread, 2, "MagnetThread");
+	G8RTOS_AddThread(BoardLedUpdateThread, 4, "LedThread");
+	G8RTOS_AddThread(LCD_Thread, 5, "LCDThread");
 	G8RTOS_AddThread(IdleThread, 255, "Idle");
 
-    // P3->DIR = BIT0; // Make pin 0 and output
-	// P3->OUT = 1; // Data line is defaulted to low (inverted in external circuit)
 
 	G8RTOS_Launch();
 

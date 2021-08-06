@@ -13,6 +13,9 @@ extern "C" void LED_Wait1Low(void);
 using namespace RemoteChess;
 
 LedMatrix::LedMatrix() {
+    P5->DIR |= BIT0;    
+	P5->OUT |= BIT0; // Data line is defaulted to low (inverted in external circuit)
+
     DrawChecker();
 }
 
@@ -73,14 +76,14 @@ void LedMatrix::Refresh() const {
 
             for (int i = 0 ; i < 8; i++) {
                 if (outWord & 1) {
-                    P3->OUT = WS2812B_HIGH;
+                    P5->OUT = WS2812B_HIGH;
                     LED_Wait0High();
-                    P3->OUT = WS2812B_LOW;
+                    P5->OUT = WS2812B_LOW;
                     LED_Wait0Low();
                 } else {
-                    P3->OUT = WS2812B_HIGH;
+                    P5->OUT = WS2812B_HIGH;
                     LED_Wait1High();
-                    P3->OUT = WS2812B_LOW;
+                    P5->OUT = WS2812B_LOW;
                     // LED_Wait1Low();
                 }
                 outWord >>= 1;
@@ -90,14 +93,14 @@ void LedMatrix::Refresh() const {
 
             for (int i = 0 ; i < 8; i++) {
                 if (outWord & 1) {
-                    P3->OUT = WS2812B_HIGH;
+                    P5->OUT = WS2812B_HIGH;
                     LED_Wait0High();
-                    P3->OUT = WS2812B_LOW;
+                    P5->OUT = WS2812B_LOW;
                     LED_Wait0Low();
                 } else {
-                    P3->OUT = WS2812B_HIGH;
+                    P5->OUT = WS2812B_HIGH;
                     LED_Wait1High();
-                    P3->OUT = WS2812B_LOW;
+                    P5->OUT = WS2812B_LOW;
                     // LED_Wait1Low();
                 }
                 outWord >>= 1;
@@ -107,14 +110,14 @@ void LedMatrix::Refresh() const {
 
             for (int i = 0 ; i < 8; i++) {
                 if (outWord & 1) {
-                    P3->OUT = WS2812B_HIGH;
+                    P5->OUT = WS2812B_HIGH;
                     LED_Wait0High();
-                    P3->OUT = WS2812B_LOW;
+                    P5->OUT = WS2812B_LOW;
                     LED_Wait0Low();
                 } else {
-                    P3->OUT = WS2812B_HIGH;
+                    P5->OUT = WS2812B_HIGH;
                     LED_Wait1High();
-                    P3->OUT = WS2812B_LOW;
+                    P5->OUT = WS2812B_LOW;
                     // LED_Wait1Low();
                 }
                 outWord >>= 1;
@@ -122,7 +125,7 @@ void LedMatrix::Refresh() const {
         }
     }
 
-    P3->OUT = WS2812B_LOW;
+    P5->OUT = WS2812B_LOW;
     for (volatile int i = 0; i < 175; i++) { }
 
     G8RTOS_EndCriticalSection();

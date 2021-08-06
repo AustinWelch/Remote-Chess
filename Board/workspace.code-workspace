@@ -1,0 +1,30 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "..\\..\\lib\\BoardSupportPackage"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"uart.h": "c",
+			"stdint.h": "c",
+			"bsp.h": "c",
+			"msp.h": "c",
+			"g8rtos_scheduler.h": "c",
+			"pcm.h": "c",
+			"bmi160.h": "c",
+			"opt3001.h": "c",
+			"driverlib.h": "c",
+			"spi.h": "c",
+			"core_cm4.h": "c",
+			"g8rtos_semaphores.h": "c",
+			"msp432p401r.h": "c",
+			"cstddef": "c",
+			"g8rtos.h": "c"
+		},
+		"C_Cpp.default.cStandard": "c11"
+	}
+}
