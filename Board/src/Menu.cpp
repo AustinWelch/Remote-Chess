@@ -1,21 +1,25 @@
 #include "Menu.h"
+#include "msp.h"
 
 using namespace RemoteChess;
 
 Menu::Menu() {
+    //TODO: Change Port Mapping
     P8->DIR &= ~(BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
     P8->IFG &= ~(BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
     P8->IES |= BIT3 | BIT4 | BIT5 | BIT6 | BIT7;
     P8->REN |= BIT3 | BIT4 | BIT5 | BIT6 | BIT7;
     P8->OUT |= BIT3 | BIT4 | BIT5 | BIT6 | BIT7;
 
-    __NVIC_SetPriority(PORT8_IRQn, 32);
-    __NVIC_EnableIRQ(PORT8_IRQn);
+    __NVIC_SetPriority(PORT4_IRQn, 32);
+    __NVIC_EnableIRQ(PORT4_IRQn);
 }
 
 uint8_t Menu::DisplayMenuLeft(LCD_CharacterDisplay &LCD, std::array<const char*, 4> selections, uint8_t startLine, uint8_t selectionSize) {
     for (int i = startLine; i < selectionSize + startLine; i++){
-        LCD.WriteLineMenuLeft(selections[i - startLine], i);
+        char outChar[20];
+        convertToChar(selections[i - startLine], outChar);
+        LCD.WriteLineMenuLeft(outChar, i);
     }
 
     uint8_t currentLine = startLine;
@@ -29,7 +33,7 @@ uint8_t Menu::DisplayMenuLeft(LCD_CharacterDisplay &LCD, std::array<const char*,
     while (true) {
         prevLine = currentLine;
 
-        input = AwaitInput;
+        input = AwaitInput();
 
         if (input == ButtonDirection::RIGHT || input == ButtonDirection::LEFT)
             continue;
@@ -41,7 +45,7 @@ uint8_t Menu::DisplayMenuLeft(LCD_CharacterDisplay &LCD, std::array<const char*,
             }
         }
 
-        else if (input == ButtonDirection::Down) {
+        else if (input == ButtonDirection::DOWN) {
             if (currentLine != startLine + selectionSize - 1) {
                 currentLine++;
                 LCD.DrawCursor(currentLine, justification, prevLine, justification);
@@ -55,8 +59,13 @@ uint8_t Menu::DisplayMenuLeft(LCD_CharacterDisplay &LCD, std::array<const char*,
 
 uint8_t Menu::DisplayMenuLeftRight(LCD_CharacterDisplay &LCD, std::array<const char*, 8> selections, uint8_t startLine, uint8_t selectionSize) {
     for (int i = startLine; i < (selectionSize + startLine * 2) / 2; i++){
-        LCD.WriteLineMenuLeft(selections[2 * (i - startLine)], i);
-        LCD.WriteLineMenuRight(selections[2 * (i - startLine) + 1], i);
+        char outChar[15];
+        convertToChar(selections[2 * (i - startLine)], outChar);
+        LCD.WriteLineMenuLeft(outChar, i);
+
+        char outChar2[15];
+        convertToChar(selections[2 * (i - startLine) + 1], outChar2);
+        LCD.WriteLineMenuRight(outChar2, i);
     }
 
     if (selectionSize % 2 == 1){
@@ -76,7 +85,7 @@ uint8_t Menu::DisplayMenuLeftRight(LCD_CharacterDisplay &LCD, std::array<const c
         prevPos = currentPos;
         prevJustification = justification;
 
-        input = AwaitInput;
+        input = AwaitInput();
 
         if (input == ButtonDirection::RIGHT) {
             if (currentPos % 2 == 0) {
@@ -101,7 +110,7 @@ uint8_t Menu::DisplayMenuLeftRight(LCD_CharacterDisplay &LCD, std::array<const c
             }
         }
 
-        else if (input == ButtonDirection::Down) {
+        else if (input == ButtonDirection::DOWN) {
             if (currentPos / 2 != startLine + selectionSize - 1) {
                 currentPos += 2;
                 LCD.DrawCursor(currentPos, justification, prevPos, prevJustification);
@@ -113,7 +122,7 @@ uint8_t Menu::DisplayMenuLeftRight(LCD_CharacterDisplay &LCD, std::array<const c
     }
 }
 
-int8_t Menu::DisplayScrollingMenu(LCD_CharacterDisplay &LCD, flat_vector<std::string, 50> scrollItems, uint8_t listSize, const char* secondarySelection) {
+int8_t Menu::DisplayScrollingMenu(LCD_CharacterDisplay &LCD, flat_vector<std::string, 50> &scrollItems, uint8_t listSize, char* secondarySelection) {
     LCD.WriteLineMenuRight("Back", 3);
 
     bool secondary = false;
@@ -140,13 +149,19 @@ int8_t Menu::DisplayScrollingMenu(LCD_CharacterDisplay &LCD, flat_vector<std::st
         prevJustification = justification;
 
         for (int i = 1; i < 3 || i < (listSize - (currentSelection / 4) * 4); i++) {
-            LCD.WriteLineMenuLeft(scrollItems[(currentSelection / 4) * 4 + ((i - 1) * 2)], i);
-            if ((listSize - (currentSelection / 4) * 4) != 3 || (listSize - (currentSelection / 4) * 4) != 1) 
-                LCD.WriteLineMenuRight(scrollItems[(currentSelection / 4) * 4 + (i * 2) - 1], i);
+            char name[20];
+            Menu::convertToChar(scrollItems[(currentSelection / 4) * 4 + ((i - 1) * 2)], name);
+            LCD.WriteLineMenuLeft(name, i);
+            if ((listSize - (currentSelection / 4) * 4) != 3 || (listSize - (currentSelection / 4) * 4) != 1) {
+                char name2[20];
+                convertToChar(scrollItems[(currentSelection / 4) * 4 + (i * 2) - 1], name2);
+                LCD.WriteLineMenuRight(name2, i);
+            }
         }
 
-        //erase prev lines
-        input = AwaitInput;
+        //TODO:erase prev lines
+
+        input = AwaitInput();
 
         if (input == ButtonDirection::RIGHT) {
             if (currentPos % 2 == 0) {
@@ -180,7 +195,10 @@ int8_t Menu::DisplayScrollingMenu(LCD_CharacterDisplay &LCD, flat_vector<std::st
             } 
             else {
                 justification = LCD_CharacterDisplay::CursorJustify::LEFT;
-                secondary ? currentPos = 6; : currentPos = 7;
+                if (secondary)
+                    currentPos = 6;
+                else
+                    currentPos = 7;
                 LCD.DrawCursor(currentPos / 2, justification, prevPos / 2, prevJustification);
             }
         }
@@ -231,19 +249,23 @@ int8_t Menu::DisplayScrollingMenu(LCD_CharacterDisplay &LCD, flat_vector<std::st
     }
 }
 
-uint16_t getButtonInput() {
+uint16_t Menu::getButtonInput() {
     return buttonInput;
 }
 
-ButtonDirection Menu::AwaitInput() {
+uint16_t Menu::setButtonInput(uint16_t newVal) {
+    buttonInput = newVal;
+}
+
+Menu::ButtonDirection Menu::AwaitInput() {
     P8->IFG = 0;
     P8->IE |= BIT3 | BIT4 | BIT5 | BIT6 | BIT7;
 
-    while (!buttonInput);
+    while (!Menu::buttonInput);
 
-    ButtonDirection retVal;
+    Menu::ButtonDirection retVal;
 
-    switch (buttonInput) {
+    switch (Menu::buttonInput) {
         case BIT3:
             retVal = ButtonDirection::UP;
             break;
@@ -268,9 +290,10 @@ ButtonDirection Menu::AwaitInput() {
     return retVal;
 }
 
-void PORT8_IRQHandler() {
-    buttonInput = P8->IFG;
-
-    P8->IFG &= ~(BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
-    P8->IE &= ~(BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
+void Menu::convertToChar(std::string str, char* out) {
+    for (int i = 0; i < str.size(); i++) {
+        out[i] = str[i];
+    }
 }
+
+

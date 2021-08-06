@@ -1,6 +1,7 @@
 /*
     TODO:
     Finish up main FSM
+        -processor try catch?
         -d e b u g
         -Put FSM code in switch statement?
 
@@ -11,11 +12,10 @@
     Get Flash memory to work (if possible)
 
     Single Player vs Online AI
-        
+
 */
 
 #include "FSM.h"
-#include "ChessBoard.h"
 #include "LCD_CharacterDisplay.h"
 #include "Menu.h"
 
@@ -28,7 +28,7 @@ void FSM::FSMController() {
     while (true) {
         lcd.Clear();
 
-        switch (FSM::State::curState) {
+        switch (curState) {
             case FSM::State::INITIAL_CONNECTION:
                 FSM::InitialConnection();
                 break;
@@ -130,8 +130,7 @@ void FSM::InitialConnection() {
 
     if (attempts == 3) { 
         lcd.WriteLineCentered("Failed to connect to server", 0);
-        
-        uint8_t resp = menu.DisplayMenuLeft(&lcd, {"Retry", "Update WIFI Credentials", "", ""}, 1, 2);
+        uint8_t resp = menu.DisplayMenuLeft(lcd, {"Retry", "Update WIFI Credentials", "", ""}, 1, 2);
         if (resp == 1) 
             nextState = FSM::State::INITIAL_CONNECTION;
         else
@@ -169,7 +168,7 @@ void FSM::Main_Menu() {
 
     lcd.WriteLineCentered(title, 0);
     
-    uint8_t buttonResp = menu.DisplayMenuLeft(&lcd, {"Game", "Friends", "Settings", ""}, 1, 3);
+    uint8_t buttonResp = menu.DisplayMenuLeft(lcd, {"Game", "Friends", "Settings", ""}, 1, 3);
     if (buttonResp == 1)
         nextState = FSM::State::FIND_GAME;
 
@@ -197,7 +196,7 @@ void FSM::Friends() {
     if (retVal == NO_FRIENDS) {
         lcd.WriteLineCentered("No friends added", 1);
 
-        uint8_t buttonResponse = menu.DisplayMenuLeftRight(&lcd, {"Add", "Back", "", "", "", "", "", ""}, 3, 2);
+        uint8_t buttonResponse = menu.DisplayMenuLeftRight(lcd, {"Add", "Back", "", "", "", "", "", ""}, 3, 2);
 
         if (buttonResponse == 6)
             nextState = FSM::State::FRIENDS_ADD;
@@ -207,7 +206,7 @@ void FSM::Friends() {
         return;
     }
 
-    int8_t selection = menu.DisplayScrollingMenu(&lcd, FSM::friends, friends.size());
+    int8_t selection = menu.DisplayScrollingMenu(lcd, friends, friends.size(), "");
 
     if (selection == -2) {
         nextState = FSM::State::FRIENDS_ADD;
@@ -225,20 +224,20 @@ void FSM::FriendsAdd() {
         lcd.Clear();
         lcd.WriteLineCentered("Add Friends", 0);
 
-        uint8_t buttonResponse = menu.DisplayMenuLeftRight(&lcd, { "Send Request", "Incoming Requests", "Outgoing Requests", "Back", "", "", "", "" }, 1, 4);
+        uint8_t buttonResponse = menu.DisplayMenuLeftRight(lcd, { "Send Request", "Incoming Requests", "Outgoing Requests", "Back", "", "", "", "" }, 1, 4);
 
         if (buttonResponse == 2) {
             lcd.Clear();
             lcd.WriteLine("Enter Friend's ID", 0);
             lcd.WriteLine("ID: ", 1);
             
-            char friendID[100] = 101;//BoardKeyBoardFunction();
+            char friendID[100] = "101";//BoardKeyBoardFunction();
 
             //if submit
                 char response[1024];
-                int serverResp = chessServer_addFriend(response, std::stoi(convertToString(friendID)));
+                int8_t serverResp = chessServer_addFriend(response, std::stoi(FSM::convertToString(friendID, strlen(friendID))));
                 lcd.Clear();
-                LCD_Display(response)
+                lcd.WriteMessageWrapped(response);
                 DelayMs(3000);
                 if (serverResp == INVALID_RESPONSE || serverResp == REQUEST_FAILED)
                     nextState = FSM::State::FRIENDS_ADD;
@@ -253,13 +252,15 @@ void FSM::FriendsAdd() {
                 lcd.Clear();
                 lcd.WriteLineCentered("Incoming Requests", 0);
                 
-                int8_t selection = menu.DisplayScrollingMenu(&lcd, incoming_friends, incoming_friends.size(), "");
+                int8_t selection = menu.DisplayScrollingMenu(lcd, incoming_friends, incoming_friends.size(), "");
 
                 if (selection > 0) {
                     lcd.Clear();
-                    lcd.WriteLineCentered(incoming_friends[selection], 0);
+                    char name[20];
+                    convertToChar(incoming_friends[selection], name);
+                    lcd.WriteLineCentered(name, 0);
                     
-                    buttonResponse = menu.DisplayMenuLeft(&lcd, {"Accept", "Decline", "Back", ""}, 1, 3);
+                    buttonResponse = menu.DisplayMenuLeft(lcd, {"Accept", "Decline", "Back", ""}, 1, 3);
 
                     char serverResponse[1024];
                     if (buttonResponse == 1) {
@@ -293,13 +294,15 @@ void FSM::FriendsAdd() {
                 lcd.Clear();
                 lcd.WriteLineCentered("Outgoing Requests", 0);
                 
-                int8_t selection = menu.DisplayScrollingMenu(&lcd, outgoing_friends, outgoing_friends.size(), "");
+                int8_t selection = menu.DisplayScrollingMenu(lcd, outgoing_friends, outgoing_friends.size(), "");
 
                 if (selection > 0) {
                     lcd.Clear();
-                    lcd.WriteLineCentered(outgoing_friends[selection], 0);
+                    char name[20];
+                    convertToChar(outgoing_friends[selection], name);
+                    lcd.WriteLineCentered(name, 0);
                     
-                    buttonResponse = menu.DisplayMenuLeft(&lcd, {"Cancel", "Back", "", ""}, 1, 2);
+                    buttonResponse = menu.DisplayMenuLeft(lcd, {"Cancel", "Back", "", ""}, 1, 2);
 
                     char serverResponse[1024];
                     if (buttonResponse == 1) {
@@ -328,9 +331,11 @@ void FSM::FriendsAdd() {
 }
 
 void FSM::FriendsSelect() {
-    lcd.WriteLineCentered(currentFriendName, 0);
+    char name[20];
+    convertToChar(currentFriendName, name);
+    lcd.WriteLineCentered(name, 0);
     
-    uint8_t buttonResponse = menu.DisplayMenuLeft(&lcd, {"Invite to Game", "Remove Friend", "Back", ""}, 1, 3);
+    uint8_t buttonResponse = menu.DisplayMenuLeft(lcd, {"Invite to Game", "Remove Friend", "Back", ""}, 1, 3);
   
     if (buttonResponse == 1)
         nextState = FSM::State::FRIENDS_SELECT_INVITE;
@@ -372,7 +377,8 @@ void FSM::FriendsSelectInvite() {
             }
 
             if (buttonPressed) {
-                retVal = chessServer_cancelInvite();
+                char response[64];
+                retVal = chessServer_cancelInvite(response, currentFriendID);
                 nextState = FSM::State::FRIENDS_SELECT;
                 return;
             }
@@ -380,7 +386,7 @@ void FSM::FriendsSelectInvite() {
             retVal = chessServer_awaitTurn(response);
 
             if (retVal == SUCCESS) {
-                joiningAsPlayer = PlayerColor::WHITE;
+                joiningAsColor = PlayerColor::WHITE;
                 nextState = FSM::State::INGAME;
                 return;
             }
@@ -391,13 +397,13 @@ void FSM::FriendsSelectInvite() {
 }
 
 void FSM::FriendsSelectRemove() {
-    lcd.writeLineCentered("Are you sure you", 0);
+    lcd.WriteLineCentered("Are you sure you", 0);
     lcd.WriteLineCentered("want to to remove", 1);
     char name[20];
     FSM::convertToChar(currentFriendName + "?", name);
     lcd.WriteLineCentered(name, 2);
     
-    uint8_t buttonResponse = menu.DisplayMenuLeftRight(&lcd, {"Yes", "No", "", "", "", "", "", ""}, 3, 2);
+    uint8_t buttonResponse = menu.DisplayMenuLeftRight(lcd, {"Yes", "No", "", "", "", "", "", ""}, 3, 2);
     if (buttonResponse == 1) {
         char response[128];
         int8_t retVal = chessServer_removeFriend(response, currentFriendID);
@@ -410,7 +416,7 @@ void FSM::FriendsSelectRemove() {
 
 void FSM::Settings() {
     lcd.WriteLineCentered("Settings", 0);
-    uint8_t buttonResponse = menu.DisplayMenuLeftRight(&lcd, {"Board Pref", "WIFI", "Name", "Back", "", "", "", ""});
+    uint8_t buttonResponse = menu.DisplayMenuLeftRight(lcd, {"Board Pref", "WIFI", "Name", "Back", "", "", "", ""}, 1, 4);
    
     if (buttonResponse == 2) {
         nextState = FSM::State::SETTINGS_BOARDPREFERENCES;
@@ -424,13 +430,13 @@ void FSM::Settings() {
 }
 
 void FSM::SettingsNameChange() {
-    lcd.WriteLineCentered("Enter new name: ");
+    lcd.WriteLineCentered("Enter new name: ", 1);
     
     char newName[100];
     uint8_t retVal = 0;//BoardKeyBoardFunction(); //Enter letters from sensors, print letters to LCD, middle button to submit
 
     if (retVal == 1) {
-        char response[1024]''
+        char response[1024];
         chessServer_setName(response, newName);
         lcd.WriteMessageWrapped(response);
         DelayMs(3000);
@@ -446,7 +452,7 @@ void FSM::SettingsBoardPreferences() {
     while(true){
         lcd.WriteLineCentered("Board Preferences", 0);
         
-        uint8_t buttonResponse = menu.DisplayMenuLeft(&lcd, {"Assist Lights:", "Sound:", "Back", ""});
+        uint8_t buttonResponse = menu.DisplayMenuLeft(lcd, {"Assist Lights:", "Sound:", "Back", ""}, 1, 3);
 
         if (buttonResponse == 1) {
             //usingLights = usingLights;
@@ -523,7 +529,7 @@ void FSM::WaitingForPlayer() {
 
     bool buttonPressed = false;
 
-    int8_t retVal;
+    char response[1024];
     while (true) {
         for (uint32_t i = 0; i < 30000000; i++){
             if(menu.getButtonInput() != 0) {
@@ -549,7 +555,7 @@ void FSM::WaitingForPlayer() {
         int8_t retVal = chessServer_awaitTurn(response);
 
         if (retVal == SUCCESS) {
-            joiningAsPlayer = PlayerColor::WHITE;
+            FSM::joiningAsColor = PlayerColor::WHITE;
             nextState = FSM::State::INGAME;
             return;
         }
@@ -558,7 +564,7 @@ void FSM::WaitingForPlayer() {
 }
 
 void FSM::JoinInviteCreate() {
-    uint8_t buttonResponse = menu.DisplayMenuLeft(&lcd, { "Join a game", "Invite friend", "Create a game", "Back" }, 0, 4);
+    uint8_t buttonResponse = menu.DisplayMenuLeft(lcd, { "Join a game", "Invite friend", "Create a game", "Back" }, 0, 4);
 
     if (buttonResponse == 0) {
         nextState = FSM::State::JOIN;
@@ -611,7 +617,7 @@ void FSM::Create() {
             int8_t retVal = chessServer_awaitTurn(response);
 
             if (retVal == SUCCESS) {
-                joiningAsPlayer = PlayerColor::WHITE;
+                FSM::joiningAsColor = PlayerColor::WHITE;
                 nextState = FSM::State::INGAME;
                 return;
             }
@@ -636,7 +642,7 @@ void FSM::Invite() {
     if (retVal == NO_FRIENDS) {
         lcd.WriteLineCentered("You currently have no friends to invite", 1);
         
-        menu.DisplayMenuLeft(&lcd, {"Back", "", "", ""}, 3, 1);
+        menu.DisplayMenuLeft(lcd, {"Back", "", "", ""}, 3, 1);
         
         nextState = FSM::State::JOIN_INVITE_CREATE;
     }
@@ -644,8 +650,9 @@ void FSM::Invite() {
     parseFriends(response);
 
     while(true) {
-        lcd.Clear()
-        int8_t selection = menu.DisplayScrollingMenu(&lcd, friends, friends.size(), "");
+        lcd.Clear();
+
+        int8_t selection = menu.DisplayScrollingMenu(lcd, friends, friends.size(), " ");
 
         currentFriendName = friends[selection];
         currentFriendID = friendIDs[selection];
@@ -657,7 +664,7 @@ void FSM::Invite() {
             lcd.Clear();
             lcd.WriteLineCentered(name, 0);
             
-            uint8_t buttonResponse = menu.DisplayMenuLeftRight(&lcd, { "Yes", "No", "", "", "", "", "", "" }, 2, 2);
+            uint8_t buttonResponse = menu.DisplayMenuLeftRight(lcd, { "Yes", "No", "", "", "", "", "", "" }, 2, 2);
 
             if (buttonResponse == 1) {
                 retVal = chessServer_sendInvite(response, currentFriendID);
@@ -685,7 +692,8 @@ void FSM::Invite() {
                         }
 
                         if (buttonPressed) {
-                            retVal = chessServer_cancelInvite();
+                            char response[64];
+                            retVal = chessServer_cancelInvite(response, currentFriendID);
                             nextState = FSM::State::INVITE;
                             return;
                         }
@@ -693,7 +701,7 @@ void FSM::Invite() {
                         retVal = chessServer_awaitTurn(response);
 
                         if (retVal == SUCCESS) {
-                            joiningAsPlayer = PlayerColor::WHITE;
+                            FSM::joiningAsColor = PlayerColor::WHITE;
                             nextState = FSM::State::INGAME;
                             return;
                         }
@@ -713,7 +721,7 @@ void FSM::Join() {
     while (true) {
         lcd.WriteLineCentered("Join a Game", 0);
         
-        uint8_t buttonResponse = menu.DisplayMenuLeft(&lcd, { "Invites", "Game Code", "Back", "" }, 1, 3);
+        uint8_t buttonResponse = menu.DisplayMenuLeft(lcd, { "Invites", "Game Code", "Back", "" }, 1, 3);
   
         if (buttonResponse == 1) {
             lcd.Clear();
@@ -730,7 +738,7 @@ void FSM::Join() {
 
                 else if (retVal != NO_INVITES) {
                     parseInvites(response);
-                    int8_t selection = menu.DisplayScrollingMenu(&lcd, inviterNames, inviterNames.size(), "");
+                    int8_t selection = menu.DisplayScrollingMenu(lcd, inviterNames, inviterNames.size(), "");
 
                     if (selection > 0) {
                         lcd.Clear();
@@ -738,14 +746,14 @@ void FSM::Join() {
                         FSM::convertToChar("Invite " + inviterNames[selection] + "?", name);
                         lcd.WriteLineCentered(name, 0);
                             
-                        uint8_t buttonResponse = menu.DisplayMenuLeftRight(&lcd, { "Yes", "No", "Back", "", "", "", "", "" }, 2, 3);
+                        uint8_t buttonResponse = menu.DisplayMenuLeftRight(lcd, { "Yes", "No", "Back", "", "", "", "", "" }, 2, 3);
 
                         if (buttonResponse == 1) {
                             retVal = chessServer_acceptInvite(response, inviterIDs[selection]);
                             lcd.WriteMessageWrapped(response);
                             DelayMs(1500);
                             if (retVal == SUCCESS) {
-                                joiningAsPlayer = PlayerColor::BLACK;
+                                FSM::joiningAsColor = PlayerColor::BLACK;
                                 nextState = FSM::State::INGAME;
                                 return;
                             } else {
@@ -766,13 +774,13 @@ void FSM::Join() {
                     }
                 } else { 
                     lcd.WriteLineCentered("No friends added", 1);
-                    menu.DisplayMenuLeft(&lcd, { "Back", "", "", "" }, 3, 1);
+                    menu.DisplayMenuLeft(lcd, { "Back", "", "", "" }, 3, 1);
                     break;
                 }
             }
         } else if (buttonResponse == 2) {
             lcd.Clear();
-            lcd.WriteLineCentered("Enter Game Code:");
+            lcd.WriteLineCentered("Enter Game Code:", 1);
             
             char gameCode[10];
             uint8_t retVal = 0;//BoardKeyBoardFunction(gameCode); //Enter characters from sensors, print characters to LCD, middle button to submit
@@ -813,12 +821,13 @@ void FSM::InGame() {
     Cell from, to;
 
     while (true) {
-        char serverResp[1024] = chessServer_awaitTurn(serverResp);
+        char response[1024];
+        int8_t serverResp = chessServer_awaitTurn(response);
 
         if (serverResp == SUCCESS) {
-            char *pt = serverResp + 15; //TODO:change number
-            from = Cell(*(strpt + 1) - 96, *(strpt + 2) - 48);
-            to = Cell(*(strpt + 3) - 96, *(strpt + 4) - 48);
+            char *pt = response + 15; //TODO:change number
+            from = Cell(*(pt + 1) - 96, *(pt + 2) - 48);
+            to = Cell(*(pt + 3) - 96, *(pt + 4) - 48);
 
             //if (magnets_isPieceAt(from)){
                 initialBoardState = ChessBoard::BoardState::AWAITING_REMOTE_MOVE_NOTICE;
@@ -843,11 +852,11 @@ void FSM::InGame() {
     ChessBoard gameBoard(joiningAsColor, initialBoardState);
 
     if (triggerIncomingMove)
-        ChessBoard::ReceiveRemoteMove(Move(from, to));
+        gameBoard.ReceiveRemoteMove(Move(from, to));
     
     while (true) {
         lcd.Clear();
-        if (gameBoard.boardFSM.GetState() == ChessBoard::BoardState::AWAITING_REMOTE_MOVE_NOTICE) {
+        if (gameBoard.GetBoardState() == ChessBoard::BoardState::AWAITING_REMOTE_MOVE_NOTICE) {
             while (!turnReady) {
                 lcd.WriteLineCentered("Waiting for", 0);
                 lcd.WriteLineCentered("opponent's move...", 1);
@@ -858,7 +867,6 @@ void FSM::InGame() {
 
                 bool buttonPressed = false;
 
-                int8_t retVal;
                 while (true) {
                     for (uint32_t i = 0; i < 30000000; i++){
                         if(menu.getButtonInput() != 0) {
@@ -878,7 +886,7 @@ void FSM::InGame() {
                             buttonPressed = false;
                         }
                     }
-
+                    char response[64];
                     int8_t retVal = chessServer_awaitTurn(response);
 
                     if (retVal == SUCCESS) {
@@ -889,7 +897,7 @@ void FSM::InGame() {
             continue;
         }
 
-        else if (gameBoard.boardFSM.GetState() == ChessBoard::BoardState::AWAITING_LOCAL_MOVE) {
+        else if (gameBoard.GetBoardState() == ChessBoard::BoardState::AWAITING_LOCAL_MOVE) {
             std::string liftedPieceName = "";
             while (true) {
                 lcd.Clear();
@@ -899,14 +907,14 @@ void FSM::InGame() {
 
                 char movePieceName[20];
                 if (liftedPieceName.size() == 0) {
-                    movePieceName = "No piece chosen";
-                } else if (liftedPieceName.size() == 1) {
-                    movePieceName = "Cannot move piece";
+                    strcpy(movePieceName, "No piece chosen");
+                } else if (liftedPieceName.size() <= 1) {
+                    strcpy(movePieceName, "Cannot move piece");
                 } else {    
                     convertToChar("Move " + liftedPieceName, movePieceName);
                 }
                 //TODO: dynamically change piecename
-                uint8_t buttonResponse = menu.DisplayMenuLeft(&lcd, { movePieceName, "Board Preferences", "Back", "" }, 1, 3);
+                uint8_t buttonResponse = menu.DisplayMenuLeft(lcd, { movePieceName, "Board Preferences", "Back", "" }, 1, 3);
                 
                 if (buttonResponse == 1 && liftedPieceName.size() != 0) {
                     lcd.Clear();
@@ -914,11 +922,11 @@ void FSM::InGame() {
                     Cell lift = gameBoard.GetLiftedPiecePos();
                     Cell place = gameBoard.GetPlacedPiecePos();
 
-                    if (gameBoard.invalidLifts.contains(lift)) {
+                    if (gameBoard.GetInvalidLifts().contains(lift)) {
                         lcd.WriteLineCentered("Mutliple pieces", 0);
                         lcd.WriteLineCentered("lifted", 1);
                         continue;
-                    } else if (gameBoard.invalidPlacements.contains(place)) {
+                    } else if (gameBoard.GetInvalidPlacements().contains(place)) {
                         lcd.WriteLineCentered("Invalid placement", 0);
                         continue;
                     }
@@ -928,7 +936,7 @@ void FSM::InGame() {
                     convertToChar("move your " + liftedPieceName + "?", name);
                     lcd.WriteLineCentered(name, 1);
 
-                    uint8_t buttonResponse = menu.DisplayMenuLeftRight(&lcd, { "Yes", "No", "", "", "", "", "", "" }, 3, 2);
+                    uint8_t buttonResponse = menu.DisplayMenuLeftRight(lcd, { "Yes", "No", "", "", "", "", "", "" }, 3, 2);
                     
                     if (buttonResponse == 1) {
                         char move[4];
@@ -945,7 +953,7 @@ void FSM::InGame() {
                             gameBoard.SubmitCurrentLocalMove();
                         } else {
                             lcd.Clear();
-                            lcd.WriteLineCentered("Something went wrong, try again");
+                            lcd.WriteMessageWrapped("Something went wrong, try again");
                         }
                         DelayMs(1500);
                         continue;
@@ -962,13 +970,13 @@ void FSM::InGame() {
             }
         }
 
-        else if (gameBoard.boardFSM.GetState() == ChessBoard::BoardState::AWAITING_REMOTE_MOVE_FOLLOWTHROUGH) {
+        else if (gameBoard.GetBoardState() == ChessBoard::BoardState::AWAITING_REMOTE_MOVE_FOLLOWTHROUGH) {
             lcd.WriteLineCentered("Opponent moved", 0);
             char name[20];
             convertToChar("their " , name);
             lcd.WriteLineCentered(name, 1);
             //TODO: Get last moved piece name
-            while(gameBoard.boardFSM.GetState() == ChessBoard::BoardState::AWAITING_REMOTE_MOVE_FOLLOWTHROUGH);
+            while(gameBoard.GetBoardState() == ChessBoard::BoardState::AWAITING_REMOTE_MOVE_FOLLOWTHROUGH);
         }
     }
 }
@@ -980,7 +988,7 @@ void FSM::InGameBoardPreferences() {
     while(true){
         lcd.WriteLineCentered("Board Preferences", 0);
         
-        uint8_t buttonResponse = menu.DisplayMenuLeft(&lcd, {"Assist Lights:", "Sound:", "Back", ""});
+        uint8_t buttonResponse = menu.DisplayMenuLeft(lcd, {"Assist Lights:", "Sound:", "Back", ""}, 1, 3);
 
         if (buttonResponse == 1) {
             //usingLights = usingLights;
@@ -999,7 +1007,7 @@ void FSM::InGameBoardPreferences() {
 void FSM::LeaveGame() {
     lcd.WriteLineCentered("Leave Game?", 0);
     
-    uint8_t buttonResponse = menu.DisplayMenuLeft(&lcd, { "Yes", "No", "", "" }, 2, 2);
+    uint8_t buttonResponse = menu.DisplayMenuLeft(lcd, { "Yes", "No", "", "" }, 2, 2);
    
     if (buttonResponse == 2)
         lcd.Clear();
@@ -1023,7 +1031,7 @@ std::string FSM::convertToString(char* ch_a, int length) {
     std::string retString = "";
 
     for (int i = 0; i < length; i++)
-        s += ch_a[i];
+        retString += ch_a[i];
 
     return retString;    
 }
@@ -1050,7 +1058,7 @@ void FSM::parseFriends(char* response) {
             break;
         }
 
-        std::string ID[20];
+        std::string ID = "";
         while (*pt != ','){
             ID += *pt;
             pt++; 
@@ -1058,7 +1066,7 @@ void FSM::parseFriends(char* response) {
         FSM::friendIDs.push_back(std::stoi(ID));
         pt++;
 
-        std::string name[20];
+        std::string name = "";
         while (*pt != ','){
             name += *pt;
             pt++; 
@@ -1074,7 +1082,7 @@ void FSM::parseFriends(char* response) {
             break;
         }
 
-        std::string ID[20];
+        std::string ID = "";
         while (*pt != ','){
             ID += *pt;
             pt++; 
@@ -1082,7 +1090,7 @@ void FSM::parseFriends(char* response) {
         FSM::incoming_friendIDs.push_back(std::stoi(ID));
         pt++;
 
-        std::string name[20];
+        std::string name = "";
         while (*pt != ','){
             name += *pt;
             pt++; 
@@ -1098,7 +1106,7 @@ void FSM::parseFriends(char* response) {
             break;
         }
 
-        std::string ID[20];
+        std::string ID = "";
         while (*pt != ','){
             ID += *pt;
             pt++; 
@@ -1106,7 +1114,7 @@ void FSM::parseFriends(char* response) {
         FSM::outgoing_friendIDs.push_back(std::stoi(ID));
         pt++;
 
-        std::string name[20];
+        std::string name = "";
         while (*pt != ','){
             name += *pt;
             pt++; 
@@ -1124,7 +1132,7 @@ void FSM::parseInvites(char* response) {
     char* pt = response + 9;
 
     while (*pt != '\0') {
-        std::string ID[20];
+        std::string ID = "";
         while (*pt != ','){
             ID += *pt;
             pt++; 
@@ -1132,7 +1140,7 @@ void FSM::parseInvites(char* response) {
         FSM::inviterIDs.push_back(std::stoi(ID));
         pt++;
 
-        std::string name[20];
+        std::string name = "";
         while (*pt != ','){
             name += *pt;
             pt++; 
@@ -1140,7 +1148,7 @@ void FSM::parseInvites(char* response) {
         FSM::inviterNames.push_back(name);
         pt++;
 
-        std::string gameCode[20];
+        std::string gameCode = "";
         while (*pt != ';'){
             gameCode += *pt;
             pt++; 
@@ -1148,4 +1156,11 @@ void FSM::parseInvites(char* response) {
         FSM::inviteGameCode.push_back(std::stoi(gameCode));
         pt++;
     }
+}
+
+void PORT8_IRQHandler() {
+    menu.setButtonInput(P8->IFG);
+
+    P8->IFG &= ~(BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
+    P8->IE &= ~(BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
 }

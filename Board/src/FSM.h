@@ -9,7 +9,13 @@ extern "C" {
     #include "chessServer.h"
     #include "G8RTOS_Semaphores.h"
     #include "G8RTOS_CriticalSection.h"
+    #include <driverlib.h>
+    #include "BSP.h"
+    #include "demo_sysctl.h"
+    #include "msp_compatibility.h"
 };
+
+#include "ChessBoard.h"
 
 namespace RemoteChess {
     class FSM {
@@ -51,7 +57,7 @@ namespace RemoteChess {
 
         flat_vector<int, 50> inviterIDs;
         flat_vector<int, 50> inviteGameCode;
-        flat_vector<int, 50> inviterNames;
+        flat_vector<std::string, 50> inviterNames;
 
         State curState;
         State nextState;
@@ -60,10 +66,10 @@ namespace RemoteChess {
 
         bool turnReady;
 
-        std::string convertToString();
+        std::string convertToString(char* ch_a, int length);
         void convertToChar(std::string str, char* out);
         void parseFriends(char* response);
-        void FSM::parseInvites(char* response);
+        void parseInvites(char* response);
 
         void InitialConnection();
         void InitialWIFIChange();

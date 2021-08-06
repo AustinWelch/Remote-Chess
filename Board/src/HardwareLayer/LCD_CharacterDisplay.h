@@ -35,11 +35,13 @@ namespace RemoteChess {
         static const uint8_t BACKLIGHT_ON = 0x08;
         static const uint8_t BACKLIGHT_OFF = 0x00;
 
+        public:
         enum class CursorJustify {
               LEFT
             , RIGHT
         };
 
+        private:
         enum class Command {
               CLEAR_DISPLAY   = 0x01
             , RETURN_HOME     = 0x02

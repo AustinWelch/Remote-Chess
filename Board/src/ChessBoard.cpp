@@ -5,9 +5,14 @@
 using namespace RemoteChess;
 using namespace std;
 
-ChessBoard::Board(PlayerColor color, ChessBoard::BoardState state) {
+ChessBoard::ChessBoard() {
+    playerColor = PlayerColor::WHITE;
+    ChessBoard::boardFSM = BoardFSM();
+}
+
+ChessBoard::ChessBoard(PlayerColor color, ChessBoard::BoardState state) {
 	playerColor = color;
-	boardFSM(state);
+	ChessBoard::boardFSM = BoardFSM(state);
 }
 
 void ChessBoard::LiftPiece(const Cell& cell) {
@@ -91,11 +96,7 @@ RemoteChess::flat_vector<Cell, 8> ChessBoard::GetAttackingMovesPiece(const Cell&
 
 std::string ChessBoard::GetPieceName(const Cell& cell) const {
     int pos = ((cell.rank - 1) * 8 + (cell.file - 1));
-	try	{
-		return pieceNames[pos];
-	} catch(const std::exception& e) {
-		return "-";
-	}
+	return pieceNames[pos];
 }
 
 void ChessBoard::GetLegalMovesAll() {
@@ -284,6 +285,17 @@ Cell ChessBoard::GetPlacedPiecePos() const {
 	return retVal;
 }
 
+ChessBoard::BoardState ChessBoard::GetBoardState() const {
+    return boardFSM.GetState();
+}
+
+RemoteChess::flat_unordered_set<Cell, 64> ChessBoard::GetInvalidLifts( ){
+    return ChessBoard::invalidLifts;
+}
+
+RemoteChess::flat_unordered_set<Cell, 64> ChessBoard::GetInvalidPlacements() {
+    return ChessBoard::invalidPlacements;
+}
 
 void ChessBoard::BoardFSM::t_LocalMoveSubmitted() {
 	if (CanMakeLocalMove()) {

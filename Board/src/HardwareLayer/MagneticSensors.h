@@ -2,13 +2,13 @@
 
 #include <array>
 #include "Cell.h"
+#include "ChessBoard.h"
 
 extern "C" {
     #include "G8RTOS_Semaphores.h"
 }
 
 namespace RemoteChess {
-    class Board;
 
     struct MagneticSensors {
         using CellValue_g = void(const Cell&, bool);
@@ -20,7 +20,7 @@ namespace RemoteChess {
         public:
         MagneticSensors();
 
-        void UpdateMagnetValuesAndPropagate(Board& board);
+        void UpdateMagnetValuesAndPropagate(ChessBoard& board);
 
         decltype(currentMagnetValues) GetCurrentMagnetValues() const;
 

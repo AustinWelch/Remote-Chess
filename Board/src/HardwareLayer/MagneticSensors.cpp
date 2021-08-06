@@ -65,7 +65,7 @@ void MagneticSensors::MeasureInitialMagnetValues() {
 	}
 }
 
-void MagneticSensors::UpdateMagnetValuesAndPropagate(Board& board) {
+void MagneticSensors::UpdateMagnetValuesAndPropagate(ChessBoard& board) {
     G8RTOS_AcquireSemaphore(&sensorSem);
 
     for (uint8_t file = 0; file < 8; file++) {

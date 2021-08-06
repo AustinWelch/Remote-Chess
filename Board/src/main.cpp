@@ -6,12 +6,13 @@ extern "C" {
 	#include "G8RTOS.h"
 }
 
-#include "Board.h"
+#include <iostream>
+#include "ChessBoard.h"
 
 using namespace RemoteChess;
 using namespace std;
 
-RemoteChess::Board g_board(PlayerColor::WHITE);
+RemoteChess::ChessBoard g_board(PlayerColor::WHITE, ChessBoard::BoardState::AWAITING_LOCAL_MOVE);
 
 void IdleThread() {
 	while (true) { }

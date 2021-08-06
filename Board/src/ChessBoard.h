@@ -22,16 +22,19 @@ namespace RemoteChess {
     };
 
 	class ChessBoard {
+	    public:
         enum class BoardState {
               AWAITING_LOCAL_MOVE
             , AWAITING_REMOTE_MOVE_NOTICE
             , AWAITING_REMOTE_MOVE_FOLLOWTHROUGH
         };
 
+	    private:
         class BoardFSM {
             BoardState curState;
 
             public:
+            BoardFSM() : curState(BoardState::AWAITING_LOCAL_MOVE) {}
             BoardFSM(BoardState initialState) : curState(initialState) { }
             BoardState GetState() const;
 
@@ -66,8 +69,8 @@ namespace RemoteChess {
 
 
 		public:
-
-		Board(PlayerColor color, BoardState state);
+        ChessBoard();
+		ChessBoard(PlayerColor color, BoardState state);
 
         void LiftPiece(const Cell& location);
         void PlacePiece(const Cell& location);
@@ -76,6 +79,11 @@ namespace RemoteChess {
         Cell GetLiftedPiecePos() const;
         Cell GetPlacedPiecePos() const;
         
+        RemoteChess::flat_unordered_set<Cell, 64> GetInvalidLifts();
+        RemoteChess::flat_unordered_set<Cell, 64> GetInvalidPlacements();
+
+        BoardState GetBoardState() const;
+
         void SubmitCurrentLocalMove();
         void ReceiveRemoteMove(const Move& move);
 
@@ -83,7 +91,7 @@ namespace RemoteChess {
 
         RemoteChess::flat_vector<Cell, 32> GetLegalMovesPiece(const Cell& origin) const;
         RemoteChess::flat_vector<Cell, 8> GetAttackingMovesPiece(const Cell& origin) const;
-        std::string Board::GetPieceName(const Cell& cell) const;
+        std::string GetPieceName(const Cell& cell) const;
         void GetLegalMovesAll();
 
         private:
