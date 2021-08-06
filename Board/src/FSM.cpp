@@ -1,7 +1,6 @@
 /*
     TODO:
     Finish up main FSM
-        -processor try catch?
         -d e b u g
         -Put FSM code in switch statement?
 
@@ -825,9 +824,9 @@ void FSM::InGame() {
         int8_t serverResp = chessServer_awaitTurn(response);
 
         if (serverResp == SUCCESS) {
-            char *pt = response + 15; //TODO:change number
-            from = Cell(*(pt + 1) - 96, *(pt + 2) - 48);
-            to = Cell(*(pt + 3) - 96, *(pt + 4) - 48);
+            char *pt = response + 24; 
+            from = Cell(*(pt) - 97, *(pt + 1) - 49);
+            to = Cell(*(pt + 2) - 97, *(pt + 3) - 49);
 
             //if (magnets_isPieceAt(from)){
                 initialBoardState = ChessBoard::BoardState::AWAITING_REMOTE_MOVE_NOTICE;
@@ -886,8 +885,11 @@ void FSM::InGame() {
                             buttonPressed = false;
                         }
                     }
+                    
                     char response[64];
                     int8_t retVal = chessServer_awaitTurn(response);
+
+                    char* pt = response + 24;
 
                     if (retVal == SUCCESS) {
                        break;
@@ -940,10 +942,10 @@ void FSM::InGame() {
                     
                     if (buttonResponse == 1) {
                         char move[4];
-                        move[0] = lift.file + 96;
-                        move[1] = lift.rank + 48;
-                        move[2] = place.file + 96;
-                        move[3] = place.rank + 48;
+                        move[0] = lift.file + 97;
+                        move[1] = lift.rank + 49;
+                        move[2] = place.file + 97;
+                        move[3] = place.rank + 49;
 
                         int8_t retVal = chessServer_makeMove(move);
 
@@ -1156,11 +1158,4 @@ void FSM::parseInvites(char* response) {
         FSM::inviteGameCode.push_back(std::stoi(gameCode));
         pt++;
     }
-}
-
-void PORT8_IRQHandler() {
-    menu.setButtonInput(P8->IFG);
-
-    P8->IFG &= ~(BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
-    P8->IE &= ~(BIT3 | BIT4 | BIT5 | BIT6 | BIT7);
 }

@@ -51,7 +51,7 @@ void ChessBoard::PlacePiece(const Cell& cell) {
 		// Unexpected piece placed without lifting anything
 		invalidPlacements.insert(cell);
 	} else {
-		if (fsm.CanMakeLocalMove()) {
+		if (boardFSM.CanMakeLocalMove()) {
 			if (cell == liftedPiece) {
 				// Placing a lifted piece back where it started
 				liftedPiece = nullptr;
@@ -83,18 +83,18 @@ void ChessBoard::PlacePiece(const Cell& cell) {
 }
 
 RemoteChess::flat_vector<Cell, 32> ChessBoard::GetLegalMovesPiece(const Cell& origin) const {
-	int pos = ((origin.rank - 1) * 8 + (origin.file - 1));
+	int pos = ((origin.rank) * 8 + (origin.file));
 
 	return allLegalMoves[pos];
 }
 
 RemoteChess::flat_vector<Cell, 8> ChessBoard::GetAttackingMovesPiece(const Cell& origin) const {
-    int pos = ((origin.rank - 1) * 8 + (origin.file - 1));
+    int pos = ((origin.rank) * 8 + (origin.file));
 	return allAttackingMoves[pos];
 }
 
-std::stringw ChessBoard::GetPieceName(const Cell& cell) const {
-    int pos = ((cell.rank - 1) * 8 + (cell.file - 1));
+std::string ChessBoard::GetPieceName(const Cell& cell) const {
+    int pos = ((cell.rank) * 8 + (cell.file));
 	return pieceNames[pos];
 }
 
@@ -130,11 +130,11 @@ void ChessBoard::GetLegalMovesAll() {
 		
 		flat_vector<Cell, 32> legalMovesPiece;
 		flat_vector<Cell, 8> attackingMovesPiece;
-		while (*strpt != ']') {
-			Cell curCell = Cell(*(strpt + 1) - 96,*(strpt + 2)-48);
+		while ( *strpt != ']' ) {
+			Cell curCell = Cell( *(strpt + 1) - 97, *(strpt + 2) - 49 );
 			legalMovesPiece.push_back(curCell);
-			if (*(strpt + 3) != '\'') {
-				if (*(strpt + 3) == 'A')
+			if ( *(strpt + 3) != '\'' ) {
+				if ( *(strpt + 3) == 'A' )
 					attackingMovesPiece.push_back(curCell);
 				//TODO: Handle castling
 				strpt++;
