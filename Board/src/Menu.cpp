@@ -1,6 +1,8 @@
 #include "Menu.h"
 #include "msp.h"
 
+#include <stdio.h>
+
 using namespace RemoteChess;
 
 Menu::Menu() {
@@ -33,9 +35,7 @@ Menu::Menu() {
 
 uint8_t Menu::DisplayMenuLeft(LCD_CharacterDisplay &LCD, std::array<const char*, 4> selections, uint8_t startLine, uint8_t selectionSize) {
     for (int i = startLine; i < selectionSize + startLine; i++){
-        char outChar[20];
-        convertToChar(selections[i - startLine], outChar);
-        LCD.WriteLineMenuLeft(outChar, i);
+        LCD.WriteLineMenuLeft(selections[i - startLine], i);
     }
 
     uint8_t currentLine = startLine;
@@ -75,13 +75,8 @@ uint8_t Menu::DisplayMenuLeft(LCD_CharacterDisplay &LCD, std::array<const char*,
 
 uint8_t Menu::DisplayMenuLeftRight(LCD_CharacterDisplay &LCD, std::array<const char*, 8> selections, uint8_t startLine, uint8_t selectionSize) {
     for (int i = startLine; i < (selectionSize + startLine * 2) / 2; i++){
-        char outChar[15];
-        convertToChar(selections[2 * (i - startLine)], outChar);
-        LCD.WriteLineMenuLeft(outChar, i);
-
-        char outChar2[15];
-        convertToChar(selections[2 * (i - startLine) + 1], outChar2);
-        LCD.WriteLineMenuRight(outChar2, i);
+        LCD.WriteLineMenuLeft(selections[2 * (i - startLine)], i);
+        LCD.WriteLineMenuRight(selections[2 * (i - startLine) + 1], i);
     }
 
     if (selectionSize % 2 == 1){
@@ -104,7 +99,7 @@ uint8_t Menu::DisplayMenuLeftRight(LCD_CharacterDisplay &LCD, std::array<const c
         input = AwaitInput();
 
         if (input == ButtonDirection::RIGHT) {
-            if (currentPos % 2 == 0) {
+            if (currentPos % 2 == 0 && currentPos - (startLine * 2) + 1 != selectionSize) {
                 currentPos++;
                 justification = LCD_CharacterDisplay::CursorJustify::RIGHT;
                 LCD.DrawCursor(currentPos / 2, justification, prevPos / 2, prevJustification);
@@ -122,14 +117,18 @@ uint8_t Menu::DisplayMenuLeftRight(LCD_CharacterDisplay &LCD, std::array<const c
         else if (input == ButtonDirection::UP) {
             if (currentPos / 2 != startLine) {
                 currentPos -= 2;
-                LCD.DrawCursor(currentPos, justification, prevPos, prevJustification);
+                LCD.DrawCursor(currentPos / 2, justification, prevPos / 2, prevJustification);
             }
         }
 
         else if (input == ButtonDirection::DOWN) {
-            if (currentPos / 2 != startLine + selectionSize - 1) {
+            if (currentPos % 2 == 1 && selectionSize % 2 == 1 && currentPos - (startLine * 2) + 2 == selectionSize) {
+                currentPos += 1;
+                justification = LCD_CharacterDisplay::CursorJustify::LEFT;
+                LCD.DrawCursor(currentPos / 2, justification, prevPos / 2, prevJustification);
+            } else if (currentPos / 2 != startLine + (selectionSize / 2) - 1 + selectionSize % 2) {
                 currentPos += 2;
-                LCD.DrawCursor(currentPos, justification, prevPos, prevJustification);
+                LCD.DrawCursor(currentPos / 2, justification, prevPos / 2, prevJustification);
             }
         }
 
@@ -138,7 +137,7 @@ uint8_t Menu::DisplayMenuLeftRight(LCD_CharacterDisplay &LCD, std::array<const c
     }
 }
 
-int8_t Menu::DisplayScrollingMenu(LCD_CharacterDisplay &LCD, flat_vector<std::string, 50> &scrollItems, uint8_t listSize, char* secondarySelection) {
+int8_t Menu::DisplayScrollingMenu(LCD_CharacterDisplay &LCD, flat_vector<char*, 10> &scrollItems, uint8_t listSize, char* secondarySelection) {
     LCD.WriteLineMenuRight("Back", 3);
 
     bool secondary = false;
@@ -161,35 +160,38 @@ int8_t Menu::DisplayScrollingMenu(LCD_CharacterDisplay &LCD, flat_vector<std::st
     LCD.DrawCursor(startLine, justification, prevPos, justification);
 
     while (true) {
+
+        LCD.WriteLine("                    ", 1);
+        LCD.WriteLine("                    ", 2);
+
+        LCD.DrawCursor(currentPos / 2, justification, prevPos / 2, prevJustification);
+
         prevPos = currentPos;
         prevJustification = justification;
 
-        for (int i = 1; i < 3 || i < (listSize - (currentSelection / 4) * 4); i++) {
-            char name[20];
-            Menu::convertToChar(scrollItems[(currentSelection / 4) * 4 + ((i - 1) * 2)], name);
-            LCD.WriteLineMenuLeft(name, i);
-            if ((listSize - (currentSelection / 4) * 4) != 3 || (listSize - (currentSelection / 4) * 4) != 1) {
-                char name2[20];
-                convertToChar(scrollItems[(currentSelection / 4) * 4 + (i * 2) - 1], name2);
-                LCD.WriteLineMenuRight(name2, i);
+        for (int i = 1; i < 3; i++) {
+            if (i >= (listSize - (currentSelection / 4) * 4) && (listSize != 1 || i > 1)) {
+                break;
+            }
+            LCD.WriteLineMenuLeft(scrollItems[(currentSelection / 4) * 4 + ((i - 1) * 2)], i);
+            if (((listSize - (currentSelection / 4) * 4) != 3 || (listSize - (currentSelection / 4) * 4) != 1) && listSize != 1) {
+                LCD.WriteLineMenuRight(scrollItems[(currentSelection / 4) * 4 + (i * 2) - 1], i);
             }
         }
-
-        //TODO:erase prev lines
 
         input = AwaitInput();
 
         if (input == ButtonDirection::RIGHT) {
             if (currentPos % 2 == 0) {
                 if (currentPos != 6) {
-                    currentPos++;
-                    currentSelection++;
-                    justification = LCD_CharacterDisplay::CursorJustify::RIGHT;
-                    LCD.DrawCursor(currentPos / 2, justification, prevPos / 2, prevJustification);
+                    if (currentSelection + 1 != listSize) {
+                        currentPos++;
+                        currentSelection++;
+                        justification = LCD_CharacterDisplay::CursorJustify::RIGHT;
+                    }
                 } else {
                     currentPos++;
                     justification = LCD_CharacterDisplay::CursorJustify::RIGHT;
-                    LCD.DrawCursor(currentPos / 2, justification, prevPos / 2, prevJustification);
                 }
             }
         }
@@ -200,56 +202,71 @@ int8_t Menu::DisplayScrollingMenu(LCD_CharacterDisplay &LCD, flat_vector<std::st
                     currentPos--;
                     currentSelection--;
                     justification = LCD_CharacterDisplay::CursorJustify::LEFT;
-                    LCD.DrawCursor(currentPos / 2, justification, prevPos / 2, prevJustification);
                 } else {
                     if (secondary) {
                         currentPos--;
                         justification = LCD_CharacterDisplay::CursorJustify::LEFT;
-                        LCD.DrawCursor(currentPos / 2, justification, prevPos / 2, prevJustification);
                     }
                 }
             } 
             else {
-                justification = LCD_CharacterDisplay::CursorJustify::LEFT;
-                if (secondary)
+                if (secondary) {
+                    justification = LCD_CharacterDisplay::CursorJustify::LEFT;
                     currentPos = 6;
-                else
+                } else {
+                    justification = LCD_CharacterDisplay::CursorJustify::RIGHT;
                     currentPos = 7;
-                LCD.DrawCursor(currentPos / 2, justification, prevPos / 2, prevJustification);
+                }
             }
         }
         
         else if (input == ButtonDirection::UP) {
             if (currentPos / 2 == startLine) {
-                if (currentSelection >= 2)
+                if (currentSelection >= 2) {
+                    currentPos += 2;
                     currentSelection -= 2;  
+                }
             }
             else if (currentPos / 2 == 3) {
                 currentSelection = (currentSelection / 4) * 4;
+                justification = LCD_CharacterDisplay::CursorJustify::LEFT;
                 currentPos = 2;
-                LCD.DrawCursor(currentPos / 2, justification, prevPos / 2, prevJustification);
             }
             else {
+                currentSelection -= 2;
                 currentPos -= 2;
-                LCD.DrawCursor(currentPos / 2, justification, prevPos / 2, prevJustification);
             }
         }
 
         else if (input == ButtonDirection::DOWN) {
-            if (currentPos / 2 == 2) {
-                if (currentSelection == listSize - 2) {
-                    currentSelection += 1;
-                } else {
+            if (currentPos / 2 == 1) {
+                if (currentPos % 2 == 0 && currentSelection + 2 <= listSize - 1) {
+                    currentPos += 2;
                     currentSelection += 2;
+                } else if (currentPos % 2 == 1) {
+                    if (listSize - currentSelection - 1 >= 2) {
+                        currentPos += 2;
+                        currentSelection += 2;
+                    } else if (listSize - currentSelection - 1 == 1) {
+                        justification = LCD_CharacterDisplay::CursorJustify::LEFT;
+                        currentPos++;
+                        currentSelection++;
+                    }
                 }
-                currentPos -= 2;
-            }
-            else if (currentPos / 2 == 3) {
-                continue;
-            }
-            else {
-                currentPos += 2;
-                LCD.DrawCursor(currentPos, justification, prevPos, prevJustification);
+            } else {
+                if (currentPos % 2 == 0 && currentSelection + 2 <= listSize - 1) {
+                    currentPos -= 2;
+                    currentSelection += 2;
+                } else if (currentPos % 2 == 1) {
+                    if (listSize - currentSelection - 1 >= 2) {
+                        currentPos -= 2;
+                        currentSelection += 2;
+                    } else if (listSize - currentSelection - 1 == 1) {
+                        justification = LCD_CharacterDisplay::CursorJustify::LEFT;
+                        currentPos -= 2;
+                        currentSelection++;
+                    }
+                }
             }
         }
 
@@ -274,46 +291,59 @@ uint16_t Menu::setButtonInput(uint16_t newVal) {
 }
 
 Menu::ButtonDirection Menu::AwaitInput() {
-    P8->IFG = 0;
-    P8->IE |= BIT3 | BIT4 | BIT5 | BIT6 | BIT7;
 
-    while (true) {
-          P8->IN & BIT3 // Up
-        , P9->IN & BIT1 // Down
-        , P9->IN & BIT3 // Left
-        , P6->IN & BIT3 // Right
-        , P7->IN & BIT2 // Center
-    }
 
     Menu::ButtonDirection retVal;
 
-    switch (buttonInput) {
-        case BIT3:
+    char resp[10];
+
+
+    while (true) {
+
+//         if (!(P8->IN & BIT3)){ // Up
+//             retVal = ButtonDirection::UP;
+//             break;
+//         }
+//         if (!(P9->IN & BIT1)){ // Down
+//             retVal = ButtonDirection::DOWN;
+//            break;
+//         }
+//         if (!(P9->IN & BIT3)){// Left
+//             retVal = ButtonDirection::LEFT;
+//            break;
+//         }
+//         if (!(P6->IN & BIT3)){ // Right
+//             retVal = ButtonDirection::RIGHT;
+//             break;
+//         }
+//         if (!(P7->IN & BIT2)){ // Center
+//             retVal = ButtonDirection::CENTER;
+//             break;
+//         }
+//    }
+
+        scanf("%s", resp);
+
+        if(strstr(resp, "up")){
             retVal = ButtonDirection::UP;
             break;
-        case BIT4:
-            retVal = ButtonDirection::RIGHT;
-            break;
-        case BIT5:
+        } else if(strstr(resp, "down")){
             retVal = ButtonDirection::DOWN;
             break;
-        case BIT6:
+        } else if(strstr(resp, "left")){
             retVal = ButtonDirection::LEFT;
             break;
-        case BIT7:
+        } else if(strstr(resp, "right")){
+            retVal = ButtonDirection::RIGHT;
+            break;
+        } else if(strstr(resp, "center")){
             retVal = ButtonDirection::CENTER;
             break;
-        default:
-            break;
-    }
+        }
 
-    buttonInput = 0;
-    
+//
+//    buttonInput = 0;
+//
+    }
     return retVal;
-}
-
-void Menu::convertToChar(std::string str, char* out) {
-    for (int i = 0; i < str.size(); i++) {
-        out[i] = str[i];
-    }
 }
