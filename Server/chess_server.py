@@ -16,6 +16,22 @@ except:
 app = Flask(__name__)
 
 
+def get_piece_number(pos):
+        return (ord(pos[0]) - 97) + ((ord(pos[1]) - 49) * 8)
+
+def add_move_modifiers(board, move):
+    if(board.is_en_passant(chess.Move(get_piece_number(move[:2]), get_piece_number(move[2:])))):
+        move = move + 'E'
+    elif(board.is_capture(chess.Move(get_piece_number(move[:2]), get_piece_number(move[2:])))):
+        move = move + 'A'
+    if(board.is_kingside_castling(chess.Move(get_piece_number(move[:2]), get_piece_number(move[2:])))):
+        move = move + 'K'
+    if(board.is_queenside_castling(chess.Move(get_piece_number(move[:2]), get_piece_number(move[2:])))):
+        move = move + 'Q'
+
+    return move
+
+
 @app.route('/')
 def home_page():
     return 'Server for Remote Chess :)'
@@ -54,7 +70,7 @@ def set_name(boardid, new_name):
 
 
 @app.route('/user/<boardid>/getname')
-def get_name(boardid, new_name):
+def get_name(boardid):
     try:
         name = db.collection('chess').document('users').collection('users').document(boardid).get().to_dict()['name']
         return '<span style="white-space: pre-wrap">Name: ' + name + '</span>'
@@ -155,6 +171,8 @@ def create_new_game(boardid):
         , 'players_joined' : 1
         , 'players_turn' : int(boardid)
         , 'movecount' : 0
+        , 'in_check' : 'N'
+        , 'game_status' : 'O' #O -ongoing, R - opponent retired, W - winner decided
     })
     db.collection('chess').document('users').collection('users').document(boardid).update({
         'ongoing_game' : id
@@ -397,6 +415,16 @@ def get_code(game_code):
     return '<span style="white-space: pre-wrap">' + 'Total Moves: ' + str(game['movecount']) + '\nPlayers in Game: P1: ' + str(game['player1_id']) + '   P2: ' + str(game['player2_id']) + '\nTurn: ' + str(game['players_turn']) + '\nLast Move: ' + str(game['lastmove']) +'\nBoard:\n' + str(game['chessboard']) + '</span>'
 
 
+@app.route('/game/<game_code>/gamestate')
+def get_gamestate(game_code):
+    game = db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()
+    if (game['players_turn'] == game['player1_id'] ):
+        player_number = 'P1:'
+    else:
+        player_number = 'P2:'
+    return '<span style="white-space: pre-wrap">' + 'Turn: ' + player_number + str(game['players_turn']) + ', Last Move: ' + str(game['lastmove']) + ', Players: ' + 'P1:' + str(game['player1_id']) + ' P2:' + str(game['player2_id']) + ', Winner: ' + 'N' + ', In Check: ' + game['in_check'] + '</span>'
+
+
 @app.route('/game/<game_code>/delete')
 def delete_game(game_code):
     try:
@@ -431,10 +459,12 @@ def is_turn_ready(game_code, user_id):
         if (game['players_joined'] == 1):
             return '<span style="white-space: pre-wrap">Waiting for opponent to join</span>'
         elif (game['players_turn'] == user_id):
-            last_move = db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()['lastmove']
+            game = db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()
+            in_check = game['in_check']
+            last_move = game['lastmove']
             if (len(last_move) == 0):
                 last_move = '-'
-            return '<span style="white-space: pre-wrap">Turn Ready - Last Move: ' + last_move + '</span>'
+            return '<span style="white-space: pre-wrap">Turn Ready - Last Move: ' + last_move + ', In Check: ' + in_check + '</span>'
         else:
             return '<span style="white-space: pre-wrap">Turn Not Ready</span>'
     except:
@@ -443,9 +473,6 @@ def is_turn_ready(game_code, user_id):
 
 @app.route('/game/<game_code>/getlegalmoves')
 def get_all_moves(game_code):
-
-    def get_piece_number(pos):
-        return (ord(pos[0]) - 97) + ((ord(pos[1]) - 49) * 8)
 
     def get_piece_type(board, pos):
         piece_number = get_piece_number(pos)
@@ -477,14 +504,7 @@ def get_all_moves(game_code):
     legal_moves = {}
 
     for i in range(len(all_legal_moves)):
-        if(board.is_en_passant(chess.Move(get_piece_number(all_legal_moves[i][:2]), get_piece_number(all_legal_moves[i][2:])))):
-            all_legal_moves[i] = all_legal_moves[i] + 'E'
-        elif(board.is_capture(chess.Move(get_piece_number(all_legal_moves[i][:2]), get_piece_number(all_legal_moves[i][2:])))):
-            all_legal_moves[i] = all_legal_moves[i] + 'A'
-        if(board.is_kingside_castling(chess.Move(get_piece_number(all_legal_moves[i][:2]), get_piece_number(all_legal_moves[i][2:])))):
-            all_legal_moves[i] = all_legal_moves[i] + 'K'
-        if(board.is_queenside_castling(chess.Move(get_piece_number(all_legal_moves[i][:2]), get_piece_number(all_legal_moves[i][2:])))):
-            all_legal_moves[i] = all_legal_moves[i] + 'Q'
+        all_legal_moves[i] = add_move_modifiers(board, all_legal_moves[i])
 
         try:
             legal_moves[all_legal_moves[i][:2]].append(all_legal_moves[i][2:])
@@ -501,6 +521,7 @@ def existing_game(game_code, userId, move):
     board = chess.Board(game['fen'])
     if(game['players_turn'] == userId):
         try:
+            display_move = add_move_modifiers(board, move)
             board.push_uci(move)
             game['movecount'] += 1
             
@@ -509,13 +530,23 @@ def existing_game(game_code, userId, move):
             else:
                 game['players_turn'] = game['player1_id']
 
-            game['lastmove'] = move
+            game['lastmove'] = display_move
             game['chessboard'] = str(board)
             game['fen'] = board.fen()
 
+            if(board.is_check()):
+                game['in_check'] = 'Y'
+            else:
+                game['in_check'] = 'N'
+
+            if(board.is_checkmate()):
+                game['game_status'] = 'W'
+            else:
+                game['game_status'] = 'O'
+
             db.collection('chess').document('games').collection('games').document(game_code).set(game)
 
-            return '<span style="white-space: pre-wrap">Success! Move:' + str(game['movecount']) + '\n' + move + '\n' + str(board) + '</span>'
+            return '<span style="white-space: pre-wrap">Success! Move:' + str(game['movecount']) + '\n' + display_move + '\n' + str(board) + '</span>'
 
         except Exception as exc:
             print(exc)
