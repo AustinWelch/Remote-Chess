@@ -63,16 +63,16 @@ namespace RemoteChess {
             return !(*this == rhs);
         }
 
-        bool operator==(const T& rhs) const {
-            if (hasValue)
-                return value == rhs;
-            else
-                return false;
-        }
+        // bool operator==(const T& rhs) const {
+        //     if (hasValue)
+        //         return value == rhs;
+        //     else
+        //         return false;
+        // }
 
-        bool operator!=(const T& rhs) const {
-            return !(*this == rhs);
-        }
+        // bool operator!=(const T& rhs) const {
+        //     return !(*this == rhs);
+        // }
 
         friend bool operator==(const T& lhs, const optional<T>& rhs) {
             return rhs == lhs;

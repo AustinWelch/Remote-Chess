@@ -73,6 +73,9 @@ namespace RemoteChess {
 		static constexpr RGB YELLOW = RGB(0xFF, 0xFF, 0x00, 1);
 		static constexpr RGB CYAN = RGB(0x00, 0xFF, 0xFF, 1);
 		static constexpr RGB ORANGE = RGB(0xFF, 0x1F, 0x00, 1);
+		static constexpr RGB PURPLE = RGB(0x5F, 0x10, 0xFF, 1);
+		static constexpr RGB LIGHT_GREEN = RGB(0x5F, 0xFF, 0x5F, 1);
+		static constexpr RGB LIGHT_ORANGE = RGB(0xFF, 0x2F, 0x0F, 1);
 	};
 
 	class LedMatrix {
@@ -86,7 +89,7 @@ namespace RemoteChess {
 		void SetCell(const Cell& cell, const RGB& color);
 		void SetCells(const RemoteChess::flat_vector<Cell, 32>& cells, const RGB& color);
 		void SetAll(const RGB& color);
-		void DrawChecker();
+		void DrawChecker(const RGB& lightColor = Colors::WHITE);
 		void DrawRainbow();
 		void Refresh() const; // Display the changes to LED matrix to the human
 	};

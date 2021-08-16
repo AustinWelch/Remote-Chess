@@ -7,10 +7,14 @@ extern "C" {
     #include "i2c.h"
 }
 
+#include <cstdio>
+
 using namespace RemoteChess;
 
 
-LCD_CharacterDisplay::LCD_CharacterDisplay() {
+LCD_CharacterDisplay::LCD_CharacterDisplay() { }
+
+void LCD_CharacterDisplay::Init() {
     // 6.4 is SDA
     // 6.5 is SCL
 
@@ -78,6 +82,20 @@ void LCD_CharacterDisplay::Clear() const {
     G8RTOS_SleepThread(2);
 }
 
+void LCD_CharacterDisplay::EnableLCDCursor() const {
+    uint8_t displayControl = LCD_DISPLAY_ON | LCD_CURSOR_ON;
+    WriteCommand(Command::DISPLAY_CONTROL, displayControl);
+}
+
+void LCD_CharacterDisplay::DisableLCDCursor() const {
+    uint8_t displayControl = LCD_DISPLAY_ON | LCD_CURSOR_OFF;
+    WriteCommand(Command::DISPLAY_CONTROL, displayControl);
+}
+
+void LCD_CharacterDisplay::SetLCDAddr(uint8_t pos) const {
+    WriteCommand(Command::SET_DDRAM_ADDR, pos);
+}
+
 void LCD_CharacterDisplay::WriteLine(const char* msg, uint8_t line) const {
     static uint8_t lineAddresses[4] = { 0x00, 0x40, 0x14, 0x54 };
 
@@ -87,6 +105,53 @@ void LCD_CharacterDisplay::WriteLine(const char* msg, uint8_t line) const {
         if (msg[i] == '\0') break;
 
         WriteCommand(Command::WRITE_DATA, msg[i]); 
+    }
+}
+
+void LCD_CharacterDisplay::WriteLineRight(const char* msg, uint8_t line) const {
+    static uint8_t lineAddresses[4] = { 0x00, 0x40, 0x14, 0x54 };
+    uint16_t len = strlen(msg);
+
+    WriteCommand(Command::SET_DDRAM_ADDR, lineAddresses[line] + 19 - len + 1);
+
+    for(uint16_t i = 0; i < len; i++) {
+        WriteCommand(Command::WRITE_DATA, msg[i]); 
+    }
+}
+
+void LCD_CharacterDisplay::WriteLineCentered(const char* msg, uint8_t line) const {
+    static uint8_t lineCentersAddresses[4] = { 0x0A, 0x4A, 0x1E, 0x5E };
+    uint8_t offset = strlen(msg) / 2;
+    
+    WriteCommand(Command::SET_DDRAM_ADDR, lineCentersAddresses[line] - offset);
+
+    for (uint8_t i = 0; i < 20; i++) {
+        if (msg[i] == '\0') break;
+
+        WriteCommand(Command::WRITE_DATA, msg[i]); 
+    }
+}
+
+void LCD_CharacterDisplay::WriteFullLineCentered(const char* msg, uint8_t line) const {
+    static uint8_t lineAddresses[4] = { 0x00, 0x40, 0x14, 0x54 };
+
+    WriteLineCentered(msg, line);
+
+    bool isEven = strlen(msg) % 2 == 0;
+
+    uint8_t leftAmt = (20 - strlen(msg)) / 2 + (isEven ? 0 : 1);
+    uint8_t rightAmt = (20 - strlen(msg)) / 2;
+
+    WriteCommand(Command::SET_DDRAM_ADDR, lineAddresses[line]);
+
+    for (uint8_t i = 0; i < leftAmt; i++) {
+        WriteCommand(Command::WRITE_DATA, ' ');
+    }
+
+    WriteCommand(Command::SET_DDRAM_ADDR, lineAddresses[line] + 19 - rightAmt + 1);
+
+    for (uint8_t i = 0; i < rightAmt; i++) {
+        WriteCommand(Command::WRITE_DATA, ' ');
     }
 }
 
@@ -123,9 +188,9 @@ void LCD_CharacterDisplay::DrawCursor(uint8_t line, CursorJustify justification,
         WriteChar(' ', cursorAddresses[prevLine + 4]);
 
     if (justification == CursorJustify::LEFT)
-        WriteChar('>', cursorAddresses[line]);
+        WriteChar(0x7E, cursorAddresses[line]);
     else 
-        WriteChar('>', cursorAddresses[line + 4]);
+        WriteChar(0x7E, cursorAddresses[line + 4]);
 }
 
 void LCD_CharacterDisplay::WriteChar(const char ch, uint8_t pos) const {
@@ -133,17 +198,8 @@ void LCD_CharacterDisplay::WriteChar(const char ch, uint8_t pos) const {
     WriteCommand(Command::WRITE_DATA, ch); 
 }
 
-void LCD_CharacterDisplay::WriteLineCentered(const char* msg, uint8_t line) const {
-    static uint8_t lineCentersAddresses[4] = { 0x0A, 0x4A, 0x1E, 0x5E };
-    uint8_t offset = strlen(msg) / 2;
-    
-    WriteCommand(Command::SET_DDRAM_ADDR, lineCentersAddresses[line] - offset);
-
-    for (uint8_t i = 0; i < 20; i++) {
-        if (msg[i] == '\0') break;
-
-        WriteCommand(Command::WRITE_DATA, msg[i]); 
-    }
+void LCD_CharacterDisplay::WriteCharAtCurPos(const char ch) const {
+    WriteCommand(Command::WRITE_DATA, ch); 
 }
 
 void LCD_CharacterDisplay::WriteMessage(std::array<const char*, 4> lines) const {
@@ -152,30 +208,60 @@ void LCD_CharacterDisplay::WriteMessage(std::array<const char*, 4> lines) const 
     }
 }
 
-void LCD_CharacterDisplay::WriteMessageCenteredTitle(std::array<const char*, 4> lines) const {
-    WriteLineCentered(lines[0], 0);
-    for (uint8_t i = 1; i < 4; i++) {
-        WriteLine(lines[i], i);
-    }
+void LCD_CharacterDisplay::WriteMessageWrapped(const char* msg) const { 
+    // char word[20] = "";
+    // char lineText[20] = "";
+
+    // const char* pt = msg;
+
+    // uint8_t line = 0;
+    // uint8_t linePos = 0;
+    // uint8_t wordPos = 0;
+    // while (true) {
+    //     if (*pt == '\0') {
+    //         if (strlen(lineText) == 0)
+    //             sprintf(lineText, "%s", word);
+    //         else
+    //             sprintf(lineText, "%s %s", lineText, word);
+
+    //         WriteLineCentered(lineText, line);
+    //         return;
+    //     }
+
+    //     if (linePos == 20) {
+    //         WriteLineCentered(lineText, line);
+    //         line++;
+    //         linePos = 0;
+    //         memset(lineText, 0, 20);
+    //         if (line == 4)
+    //             return;
+    //     }
+
+    //     if (*pt == ' ') {
+    //         if (strlen(lineText) == 0)
+    //             sprintf(lineText, "%s", word);
+    //         else {
+    //             if (linePos == 19) {
+    //                 linePos++;
+    //                 continue;
+    //             }
+    //             sprintf(lineText, "%s %s", lineText, word);
+    //         }
+    //         memset(word, 0, 20);
+    //         wordPos = 0;
+    //         linePos++;
+    //         pt++;
+    //     }
+
+    //     word[wordPos++] = *pt;
+    //     linePos++;
+
+    //     pt++;
+    // }
 }
 
-void LCD_CharacterDisplay::WriteMessageWrapped(const char* msg) const {
-    static uint8_t lineAddresses[4] = { 0x00, 0x40, 0x14, 0x54 };
-    //char* word[20]; add word wrapping
-    char lineText[20];
-
-    uint16_t msgLength = strlen(msg);
-    uint8_t line = 0;
-    uint16_t j;
-    for (uint16_t i = 0; i < msgLength; i++) {
-        j = i - (line * 20);
-        lineText[j] = msg[i];
-
-        if (j % 20 == 19) {
-            WriteLine(lineText, line);
-            line++;
-        } 
-    }
+void LCD_CharacterDisplay::ClearLine(uint8_t line) const {
+    WriteLine("                    ", line);
 }
 
 void LCD_CharacterDisplay::WriteToI2C(uint8_t byte) const {

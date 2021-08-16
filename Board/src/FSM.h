@@ -7,6 +7,7 @@
 
 extern "C" {
     #include "chessServer.h"
+    #include "G8RTOS_Scheduler.h"
     #include "G8RTOS_Semaphores.h"
     #include "G8RTOS_CriticalSection.h"
     #include <driverlib.h>
@@ -16,12 +17,17 @@ extern "C" {
 };
 
 #include "ChessBoard.h"
+#include "LCD_CharacterDisplay.h"
+#include "Menu.h"
+#include "Friend.h"
 
 namespace RemoteChess {
     class FSM {
+        public:
         enum class State {
               INITIAL_CONNECTION
             , INITIAL_WIFI_CHANGE
+            , DOWNLOAD_CURRENT_GAME
             , MAIN_MENU
             , FRIENDS
             , FRIENDS_ADD
@@ -32,47 +38,47 @@ namespace RemoteChess {
             , SETTINGS_BOARDPREFERENCES
             , SETTINGS_WIFI
             , SETTINGS_NAMECHANGE
-            , FIND_GAME
-            , WAITING_ON_P2
-            , JOIN_INVITE_CREATE
+            , RESIGN
             , CREATE
-            , INVITE
+            , CPU_GAME
             , JOIN
+            , JOIN_CREATE
+            , INCOMING_INVITE
+            , NOGAME
             , INGAME
-            , INGAME_BOARDPREFERENCES
-            , LEAVE_GAME
+            , WINNER
+            , LOSER
+            , OPPONENT_RESIGNED
         };
 
-        FSM() : curState(State::INITIAL_CONNECTION) { }
-
-        std::string currentFriendName;
-        int currentFriendID;
-
-        flat_vector<std::string, 50> friends;
-        flat_vector<std::string, 50> incoming_friends;
-        flat_vector<std::string, 50> outgoing_friends;
-        flat_vector<int, 50> friendIDs;
-        flat_vector<int, 50> incoming_friendIDs;
-        flat_vector<int, 50> outgoing_friendIDs;
-
-        flat_vector<int, 50> inviterIDs;
-        flat_vector<int, 50> inviteGameCode;
-        flat_vector<std::string, 50> inviterNames;
-
+        private:
         State curState;
         State nextState;
+        bool didChangeState = false;
 
         PlayerColor joiningAsColor;
-
+        LCD_CharacterDisplay lcd;
+        Menu menu;
+        
         bool turnReady;
+        bool isGameRunning = false;
+        bool isCPUgame = false;
+        
+        public:
+        FSM(State initialState = State::INITIAL_CONNECTION) : curState(initialState) { }
 
-        std::string convertToString(char* ch_a, int length);
-        void convertToChar(std::string str, char* out);
+        const Friend* currentFriend;
+       
+        flat_vector<Friend, 10> friends; 
+        flat_vector<Friend, 10> incomingFriends;
+        flat_vector<Friend, 10> outgoingFriends;
+
         void parseFriends(char* response);
         void parseInvites(char* response);
 
         void InitialConnection();
         void InitialWIFIChange();
+        void DownloadCurrentGame();
         void Main_Menu();
         void Friends();
         void FriendsAdd();
@@ -80,21 +86,23 @@ namespace RemoteChess {
         void FriendsSelectInvite();
         void FriendsSelectRemove();
         void Settings();
-        void SettingsBoardPreferences();
-        void SettingsWifi();
-        void SettingsNameChange();
-        void FindGame();
-        void WaitingForPlayer();
-        void JoinInviteCreate();
+        // void SettingsBoardPreferences();
+        // void SettingsWifi();
+        // void SettingsNameChange();
+        void JoinCreate();
         void Create();
-        void Invite();
+        void CPUGame();
         void Join();
+        void IncomingInvite();
+        void NoGame();
         void InGame();
-        void InGameBoardPreferences();
-        void LeaveGame();
+        void Resign();
+        // void InGameBoardPreferences();
+        // void LeaveGame();
 
         public:
         
         void FSMController();
+        State GetState() const { return curState; };
     };
 }

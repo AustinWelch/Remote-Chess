@@ -96,6 +96,18 @@ namespace RemoteChess {
         const_iterator end() const { return const_iterator(*this, m_size); }
         const_iterator cend() const { return const_iterator(*this, m_size); }
 
+		iterator find(T& search) {
+			auto it = begin();
+
+			for (; it != end(); it++) {
+				if (*it == search) {
+					return it;
+				}
+			}
+
+			return it;
+		}
+
         iterator find(const T& search) {
         	auto it = begin();
 
@@ -146,14 +158,26 @@ namespace RemoteChess {
             }
         }
 
-        void erase_all() {
-            auto it = begin();
+        // Erases the first instance of the item
+        void erase(T& search) {
+            auto it = find(search);
 
-            for (; it != end(); it++)
+            if (it != end()) {
+                for (; it != --end(); it++) {
+                    swap(*it, *++iterator(it));
+                }
+
                 it->~T();
+                m_size--;
+            }
+        }
+
+        void clear() {
+            for (auto it = begin(); it != end(); it++) {
+                it->~T();
+            }
 
             m_size = 0;
         }
-
     };
 }

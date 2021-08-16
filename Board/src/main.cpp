@@ -1,3 +1,4 @@
+
 extern "C" {
 	#include "msp.h"
 	#include "BSP.h"
@@ -11,32 +12,18 @@ extern "C" {
 #include "MagneticSensors.h"
 #include "LCD_CharacterDisplay.h"
 #include "ButtonInterface.h"
+#include "FSM.h"
 
 using namespace RemoteChess;
 
-RemoteChess::Board g_board(PlayerColor::WHITE);
+RemoteChess::Board g_board(PlayerColor::WHITE, Board::BoardState::NO_GAME);
+RemoteChess::FSM g_fsm(FSM::State::INITIAL_CONNECTION);
+// static LCD_CharacterDisplay lcd;
+
+// LCD_CharacterDisplay lcd;
 
 void IdleThread() {
 	while (true) { }
-}
-
-void FlashThread() {
-	while (true) {
-		// board.ledMatrix.DrawChecker();
-		// board.ledMatrix.Refresh();
-
-		// // for (volatile int i = 0; i < 2000000; i++) { };
-
-		// // board.ledMatrix.DrawChecker();
-		// // board.ledMatrix.Refresh();
-
-		// for (volatile int i = 0; i < 2000000; i++) { };
-
-		// board->ledMatrix.SetAll(Colors::BLUE);
-		// board->ledMatrix.Refresh();
-
-		// for (volatile int i = 0; i < 2000000; i++) { };
-	}
 }
 
 void MagnetThread() {
@@ -90,34 +77,83 @@ void BoardLedUpdateThread() {
 	}
 }
 
-void LCD_Thread() {
-	G8RTOS_SleepThread(50);
+// void LCD_Thread() {
+// 	G8RTOS_SleepThread(50);
 
-	LCD_CharacterDisplay lcd;
+// 	lcd.Init();
 
-	lcd.EnableBacklight();
-	lcd.WriteMessage({ "This is line 1!", "Here lies line 2", "Hello from line 3!", "Where is line 4?" });
+// 	lcd.EnableBacklight();
+// 	lcd.WriteMessage({ "This is line 1!", "Here lies line 2", "Hello from line 3!", "Where is line 4?" });
 	
-	ButtonInterface buttons;
+// 	ButtonInterface buttons;
 
-	while (true) {
-		ButtonState btnState = buttons.GetCurrentButtonState();
+// 	while (true) {
+// 		ButtonState btnState = buttons.GetCurrentButtonState();
 
-		lcd.WriteLine(btnState.up ? "UP" : "        ", 0);
-		lcd.WriteLine(btnState.down ? "DOWN" : "        ", 1);
-		lcd.WriteLine(btnState.left ? "LEFT" : "        ", 2);
+// 		lcd.WriteLine(btnState.up ? "UP" : "        ", 0);
+// 		lcd.WriteLine(btnState.down ? "DOWN" : "        ", 1);
+// 		lcd.WriteLine(btnState.left ? "LEFT" : "        ", 2);
 
-		if (btnState.right && btnState.center)
-			lcd.WriteLine("RIGHT  CENTER", 3);
-		else if (btnState.right)
-			lcd.WriteLine("RIGHT             ", 3);
-		else if (btnState.center)
-			lcd.WriteLine("       CENTER     ", 3);
-		else
-			lcd.WriteLine("                  ", 3);
+// 		if (btnState.right && btnState.center)
+// 			lcd.WriteLine("RIGHT  CENTER", 3);
+// 		else if (btnState.right)
+// 			lcd.WriteLine("RIGHT             ", 3);
+// 		else if (btnState.center)
+// 			lcd.WriteLine("       CENTER     ", 3);
+// 		else
+// 			lcd.WriteLine("                  ", 3);
 
-		G8RTOS_SleepThread(50);
-	}
+// 		G8RTOS_SleepThread(50);
+// 	}
+// }
+
+void ControlThread(void) {
+	g_fsm.FSMController();
+	// ButtonInterface buttons;
+
+	// g_board.UpdateFromServer();
+
+	// G8RTOS_SleepThread(500);
+
+	// while (true) {
+	// 	ButtonState btnState = buttons.GetCurrentButtonState();
+
+	// 	if (g_board.GetCurrentState() == Board::BoardState::AWAITING_LOCAL_MOVE) {
+	// 		if (btnState.center) {
+	// 			G8RTOS_SleepThread(1);
+	// 			btnState = buttons.GetCurrentButtonState();
+
+	// 			Debounced
+	// 			if (btnState.center) {
+	// 				RemoteChess::optional<Move> localMove = g_board.SubmitCurrentLocalMove();
+
+	// 				if (localMove.HasValue()) {
+	// 					chessServer_makeMove(localMove->GetAlgabreic().data());
+	// 				}
+	// 			}
+	// 		}
+
+	// 		G8RTOS_SleepThread(10);
+	// 	} else if (g_board.GetCurrentState() == Board::BoardState::AWAITING_REMOTE_MOVE_NOTICE) {
+	// 		G8RTOS_SetThreadSwitchable(false);
+	// 		AwaitingMove awaitingMove = chessServer_awaitTurn();
+	// 		G8RTOS_SetThreadSwitchable(true);
+
+	// 		if (awaitingMove.status == SUCCESS) {
+	// 			Move remoteMove(awaitingMove.algabreic);
+
+	// 			g_board.ReceiveRemoteMove(remoteMove);
+
+	// 			char legalMovesString[1024];
+	// 			chessServer_getLegalMoves(legalMovesString);
+	// 			g_board.UpdateLegalMoves();
+	// 		}
+
+	// 		G8RTOS_SleepThread(3000);
+	// 	} else {
+	// 		G8RTOS_SleepThread(10);
+	// 	}
+	// }
 }
 
 void main(void) {
@@ -126,20 +162,21 @@ void main(void) {
 	printf("Hello, world!\r\n");
 
 	printf("Starting wifi...\r\n");
-	chessServer_init(KEEP_CONNECTION);
+
+	// chessServer_init(KEEP_CONNECTION);
+	// chessServer_setGameCode("451122");
 
 	G8RTOS_Init();
 
 	// G8RTOS_AddThread(FlashThread, 4, "Flash");
 	G8RTOS_AddThread(MagnetThread, 2, "MagnetThread");
 	G8RTOS_AddThread(BoardLedUpdateThread, 4, "LedThread");
-	G8RTOS_AddThread(LCD_Thread, 5, "LCDThread");
+	//G8RTOS_AddThread(LCD_Thread, 10, "LCDThread");
+	G8RTOS_AddThread(ControlThread, 7, "ControlThread");
 	G8RTOS_AddThread(IdleThread, 255, "Idle");
 
 
 	G8RTOS_Launch();
-
-	// FlashThread();
 
 	while(true) { }
 }

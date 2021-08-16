@@ -9,9 +9,17 @@ namespace RemoteChess {
         bool center = false;
     };
 
+
     struct ButtonInterface {
         ButtonInterface();
 
-        ButtonState GetCurrentButtonState() const;
+        ButtonState GetCurrentButtonState();
+        ButtonState GetCurrentButtonStatePoll() const;
+
+        void resetButtons();
+        bool isButtonPressed();
+
+        private:
+            ButtonState buttons;
     };
 }

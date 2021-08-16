@@ -3,6 +3,7 @@
 
 extern "C" {
     #include "G8RTOS_CriticalSection.h"
+    #include "G8RTOS_Scheduler.h"
 }
 
 extern "C" void LED_Wait0High(void);
@@ -22,9 +23,9 @@ LedMatrix::LedMatrix() {
 void LedMatrix::SetCell(const Cell& cell, const RGB& color) {
     // Apply correction for direction switching every other row (due to LED data in looping around)
     if (cell.rank % 2 == 0) {
-        grid[cell.rank][cell.file] = color;
-    } else {
         grid[cell.rank][7 - cell.file] = color;
+    } else {
+        grid[cell.rank][cell.file] = color;
     }
 }
 
@@ -42,7 +43,7 @@ void LedMatrix::SetAll(const RGB& color) {
     }
 }
 
-void LedMatrix::DrawChecker() {
+void LedMatrix::DrawChecker(const RGB& lightColor) {
     const RGB* checkerColor = &Colors::BLACK;
 
     for (uint8_t rank = 0; rank < 8; rank++) {
@@ -50,13 +51,13 @@ void LedMatrix::DrawChecker() {
             SetCell(Cell(file, rank), *checkerColor);
 
             if (checkerColor == &Colors::BLACK)
-                checkerColor = &Colors::WHITE;
+                checkerColor = &lightColor;
             else
                 checkerColor = &Colors::BLACK;
         }
 
         if (checkerColor == &Colors::BLACK)
-            checkerColor = &Colors::WHITE;
+            checkerColor = &lightColor;
         else
             checkerColor = &Colors::BLACK;
     }
@@ -67,6 +68,7 @@ void LedMatrix::DrawChecker() {
 
 void LedMatrix::Refresh() const {
     G8RTOS_StartCriticalSection();
+    // G8RTOS_SetThreadSwitchable(false);
 
     for (int rank = 0; rank < 8; rank++) {
         const auto& leds = grid[rank];
@@ -129,6 +131,7 @@ void LedMatrix::Refresh() const {
     for (volatile int i = 0; i < 175; i++) { }
 
     G8RTOS_EndCriticalSection();
+    // G8RTOS_SetThreadSwitchable(true);
 }
 
 void LedMatrix::DrawRainbow() {
