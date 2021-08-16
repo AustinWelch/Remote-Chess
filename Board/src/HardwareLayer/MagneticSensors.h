@@ -20,15 +20,15 @@ namespace RemoteChess {
         public:
         MagneticSensors();
 
+        void MeasureInitialMagnetValues();
         void UpdateMagnetValuesAndPropagate(Board& board);
 
-        decltype(currentMagnetValues) GetCurrentMagnetValues() const;
+        decltype(currentMagnetValues) GetCurrentMagnetValues() const; // [file][rank]
 
         private:
         static uint8_t ConvertFileToMuxSel(uint8_t file);
         static void MagneticSensors::SetMuxSel(uint8_t file);
 
-        void MeasureInitialMagnetValues();
         std::array<bool, 8> SenseFile(uint8_t muxSel) const;
     };
 }

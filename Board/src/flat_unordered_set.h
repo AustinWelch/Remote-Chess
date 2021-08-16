@@ -14,6 +14,7 @@ namespace RemoteChess {
         using RemoteChess::flat_vector<T, N>::is_empty;
         using RemoteChess::flat_vector<T, N>::contains;
         using RemoteChess::flat_vector<T, N>::erase;
+        using RemoteChess::flat_vector<T, N>::clear;
 
         void insert(const T& value) {
             if (flat_vector<T, N>::is_full()) return;

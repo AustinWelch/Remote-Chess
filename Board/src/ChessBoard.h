@@ -8,39 +8,40 @@
 #include "flat_unordered_set.h"
 #include "Move.h"
 #include <unordered_set>
-#include <string>
 
 extern "C" {
-    #include "chessServer.h"
     #include "G8RTOS_Semaphores.h"
-    #include "G8RTOS_CriticalSection.h"
-};
+}
 
 namespace RemoteChess {
     enum class PlayerColor {
         WHITE, BLACK
     };
 
-	class ChessBoard {
-	    public:
+	class Board {
+        public:
         enum class BoardState {
               AWAITING_LOCAL_MOVE
             , AWAITING_REMOTE_MOVE_NOTICE
             , AWAITING_REMOTE_MOVE_FOLLOWTHROUGH
+            , WON_GAME
+            , LOST_GAME
+            , NO_GAME
         };
 
-	    private:
-        class BoardFSM {
+        private:
+        class FSM {
             BoardState curState;
 
             public:
-            BoardFSM() : curState(BoardState::AWAITING_LOCAL_MOVE) {}
-            BoardFSM(BoardState initialState) : curState(initialState) { }
+            FSM(BoardState initialState) : curState(initialState) { }
             BoardState GetState() const;
 
             void t_LocalMoveSubmitted();
             void t_RemoteMoveFollowthroughed();
             void t_RemoteMoveReceived();
+            void t_Win();
+            void t_Lose();
 
             bool CanMakeLocalMove() const;
             bool CanFollowthroughRemoteMove() const;
@@ -49,58 +50,78 @@ namespace RemoteChess {
 
         mutable Semaphore boardSem = { 1 };
 
-        BoardFSM boardFSM;
+        FSM fsm;
 		LedMatrix ledMatrix;
-        PlayerColor playerColor;
         MagneticSensors magneticSensors;
 
+        bool inCheckmate = false;
+
+        RemoteChess::optional<Cell> attackedPiece;
         RemoteChess::optional<Cell> liftedPiece;
         RemoteChess::optional<Cell> placedPiece;
-        std::string liftedPieceName;
+
+        RemoteChess::optional<Cell> checkKingPos;
+
+        // Castling information
+        RemoteChess::optional<Move> currentRookCastleMove;
+        bool liftedCastle = false;
+        bool placedCastle = false;
+
+        // En Passant
+        RemoteChess::optional<Cell> enPassantCapture;
+        bool liftedEnPassant = false;
+
+        // Game over information
+        RemoteChess::optional<Cell> winningKingPos;
+        RemoteChess::optional<Cell> losingKingPos;
 
         RemoteChess::flat_unordered_set<Cell, 64> invalidLifts; // Make sure you have your daily dose of squatz and oatz
         RemoteChess::flat_unordered_set<Cell, 64> invalidPlacements;
 
-        RemoteChess::optional<Move> lastRemoteMove;
+        RemoteChess::optional<Move> lastRemoteMove{ Move(Cell(1, 7), Cell(2, 5)) };
         RemoteChess::optional<Move> lastLocalMove;
 
-        flat_vector<flat_vector<Cell, 32>, 64> allLegalMoves = {};
-        flat_vector<flat_vector<Cell, 8>, 64> allAttackingMoves = {};
-        flat_vector<std::string, 32> pieceNames = {};
-
+        std::array<std::array<RemoteChess::flat_vector<MoveFragment, 32>, 8>, 8> allLegalMoves = {}; // allLegalMoves[file][rank]
+        // RemoteChess::flat_vector<std::string, 32> pieceNames = {};
 
 		public:
-        ChessBoard();
-		ChessBoard(PlayerColor color, BoardState state);
+
+		Board(PlayerColor color, BoardState initialState);
 
         void LiftPiece(const Cell& location);
         void PlacePiece(const Cell& location);
 
-        std::string GetLiftedPieceName() const;
-        Cell GetLiftedPiecePos() const;
-        Cell GetPlacedPiecePos() const;
-        
-        RemoteChess::flat_unordered_set<Cell, 64> GetInvalidLifts();
-        RemoteChess::flat_unordered_set<Cell, 64> GetInvalidPlacements();
+        RemoteChess::optional<Move> SubmitCurrentLocalMove();
+        bool IsPotentialLocalMoveValid() const;
+        bool ReceiveRemoteMove(const Move& move, bool inCheckmate = false);
 
-        BoardState GetBoardState() const;
-
-        void SubmitCurrentLocalMove();
-        void ReceiveRemoteMove(const Move& move);
+        RemoteChess::optional<Move> GetLastMove() const;
+        bool IsInCheck() const { return checkKingPos.HasValue(); };
 
         void UpdateLedMatrix();
         void UpdateMagneticSensors();
 
-        RemoteChess::flat_vector<Cell, 32> GetLegalMovesPiece(const Cell& origin) const;
-        RemoteChess::flat_vector<Cell, 8> GetAttackingMovesPiece(const Cell& origin) const;
-        std::string GetPieceName(const Cell& cell) const;
-        void GetLegalMovesAll();
+        void SetCheck(const Cell& kingPos);
+        void ClearCheck();
+
+        void SetUpcomingCheckmate(const Cell& winningKingPos, const Cell& losingKingPos);
+
+        void WinGame();
+        void WinGame(const Cell& winningKingPos, const Cell& losingKingPos);
+        void LoseGame();
+        void GoToIdle();
+
+        void UpdateLegalMoves();
+        void UpdateFromServer();
+
+        BoardState GetCurrentState() const;
 
         private:
         void HighlightPieceYellow(const Cell& cell);
         void DrawRemoteMove();
         void CompleteRemoteMoveFollowthrough();
+        const RemoteChess::flat_vector<MoveFragment, 32>& GetLegalMoves(const Cell& origin) const;
+        RemoteChess::optional<Move> GetLegalMove(const Cell& origin, const Cell& dest) const;
         bool CanLiftPiece(const Cell& origin) const;
-        
 	};
 }

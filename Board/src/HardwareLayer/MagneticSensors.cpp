@@ -21,28 +21,28 @@ uint8_t MagneticSensors::ConvertFileToMuxSel(uint8_t file) {
 
 	switch (file) {
 		case 0:
-			muxSel = 7;
+			muxSel = 3;
             break;
 		case 1:
-			muxSel = 4;
-            break;
-		case 2:
-			muxSel = 5;
-            break;
-		case 3:
-			muxSel = 6;
-            break;
-		case 4:
-			muxSel = 0;
-            break;
-		case 5:
-			muxSel = 1;
-            break;
-		case 6:
 			muxSel = 2;
             break;
+		case 2:
+			muxSel = 1;
+            break;
+		case 3:
+			muxSel = 0;
+            break;
+		case 4:
+			muxSel = 6;
+            break;
+		case 5:
+			muxSel = 5;
+            break;
+		case 6:
+			muxSel = 4;
+            break;
 		case 7:
-			muxSel = 3;
+			muxSel = 7;
             break;
 	}
 
