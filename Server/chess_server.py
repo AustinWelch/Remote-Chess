@@ -1,6 +1,7 @@
 import string
 import random
 import chess
+import chess.engine
 import firebase_admin
 from firebase_admin import credentials, firestore
 from os import error
@@ -13,7 +14,32 @@ try:
 except:
     pass
 
+engine = chess.engine.SimpleEngine.popen_uci("./stockfish_13_win_x64\stockfish_13_win_x64.exe")
+
 app = Flask(__name__)
+
+
+def get_piece_number(pos):
+        return (ord(pos[0]) - 97) + ((ord(pos[1]) - 49) * 8)
+
+def add_move_modifiers(board, move):
+    if(board.is_en_passant(chess.Move(get_piece_number(move[:2]), get_piece_number(move[2:])))):
+        move = move + 'E'
+    elif(board.is_capture(chess.Move(get_piece_number(move[:2]), get_piece_number(move[2:])))):
+        move = move + 'A'
+    if(board.is_kingside_castling(chess.Move(get_piece_number(move[:2]), get_piece_number(move[2:])))):
+        move = move + 'K'
+    if(board.is_queenside_castling(chess.Move(get_piece_number(move[:2]), get_piece_number(move[2:])))):
+        move = move + 'Q'
+
+    return move
+
+def to_uci(piece_number):
+    letter = piece_number % 8
+    if (letter == 0):
+        letter = 8
+
+    return chr(int((letter % 8) + 97)) + chr(int(((piece_number / 8) + 49)))
 
 
 @app.route('/')
@@ -54,7 +80,7 @@ def set_name(boardid, new_name):
 
 
 @app.route('/user/<boardid>/getname')
-def get_name(boardid, new_name):
+def get_name(boardid):
     try:
         name = db.collection('chess').document('users').collection('users').document(boardid).get().to_dict()['name']
         return '<span style="white-space: pre-wrap">Name: ' + name + '</span>'
@@ -134,6 +160,37 @@ def get_friends(boardid):
         return '<span style="white-space: pre-wrap">User does not exist!</span>'
 
 
+@app.route('/user/<boardid>/newgamecpu')
+def create_new_game_cpu(boardid):
+    def createId():
+        id = ''.join(random.choice(string.digits) for _ in range(6))
+
+        if(db.collection('chess').document('games').collection('games').document(id).get().to_dict()):
+            return createId()
+            
+        return id
+
+    board = chess.Board()
+    id = createId()
+    db.collection('chess').document('games').collection('games').document(id).set({
+          'chessboard' : str(board)
+        , 'fen' : board.fen()
+        , 'lastmove' : 'No previous move'
+        , 'player1_id' : int(boardid)
+        , 'player2_id' : 'CPU'
+        , 'players_joined' : 2
+        , 'players_turn' : int(boardid)
+        , 'movecount' : 0
+        , 'in_check' : 'N'
+        , 'game_status' : 'O' #O -ongoing, R - opponent retired, W - winner decided
+        , 'prev_state' : {}
+    })
+    db.collection('chess').document('users').collection('users').document(boardid).update({
+        'ongoing_game' : id
+    })
+    return '<span style="white-space: pre-wrap">' + 'New game vs CPU created!\nId: ' + id + '\n</span>'
+
+
 @app.route('/user/<boardid>/newgame')
 def create_new_game(boardid):
     def createId():
@@ -149,12 +206,14 @@ def create_new_game(boardid):
     db.collection('chess').document('games').collection('games').document(id).set({
           'chessboard' : str(board)
         , 'fen' : board.fen()
-        , 'lastmove' : ''
+        , 'lastmove' : 'No previous move'
         , 'player1_id' : int(boardid)
         , 'player2_id' : 0
         , 'players_joined' : 1
         , 'players_turn' : int(boardid)
         , 'movecount' : 0
+        , 'in_check' : 'N'
+        , 'game_status' : 'O' #O -ongoing, R - opponent retired, W - winner decided
     })
     db.collection('chess').document('users').collection('users').document(boardid).update({
         'ongoing_game' : id
@@ -321,7 +380,7 @@ def send_invites(boardid, inviteeid):
             return '<span style="white-space: pre-wrap">You are already in a game</span>'
 
         if (invitee['ongoing_game']):
-            return '<span style="white-space: pre-wrap">' + invitee['name'] + ' is already in a game</span>'
+            return '<span style="white-space: pre-wrap">User ' + inviteeid + ' is already in a game</span>'
         
         create_new_game(boardid)
 
@@ -330,7 +389,7 @@ def send_invites(boardid, inviteeid):
         invitee['invites'][boardid] = [inviter['name'], inviter['ongoing_game']]
         db.collection('chess').document('users').collection('users').document(inviteeid).update({ 'invites' :  invitee['invites'] })
 
-        return '<span style="white-space: pre-wrap">Invite sent successfully</span>'
+        return '<span style="white-space: pre-wrap">Invite sent successfully. Game Code: ' + inviter['ongoing_game'] + '</span>'
 
     except:
         return '<span style="white-space: pre-wrap">User with ID: '+ inviteeid + ' does not exist</span>'
@@ -342,14 +401,14 @@ def cancel_invite(boardid, inviteeid):
         invitee = db.collection('chess').document('users').collection('users').document(inviteeid).get().to_dict()
         invites = invitee['invites']
         if(len(invites) == 0 or not boardid in invites):
-            return '<span style="white-space: pre-wrap">No invite pending with ' + invitee['name'] + '</span>'
+            return '<span style="white-space: pre-wrap">No invite pending with user ' + inviteeid + '</span>'
 
         del invites[boardid]
         db.collection('chess').document('users').collection('users').document(inviteeid).update({ 'invites' :  invites })
 
         delete_game(db.collection('chess').document('users').collection('users').document(boardid).get().to_dict()['ongoing_game'])
 
-        return '<span style="white-space: pre-wrap">Canceled invite with ' + invitee['name'] + '</span>'
+        return '<span style="white-space: pre-wrap">Canceled invite with user ' + inviteeid + '</span>'
 
     except:
         return '<span style="white-space: pre-wrap">User does not exist</span>'
@@ -391,10 +450,40 @@ def decline_invite(boardid, inviterid):
         return '<span style="white-space: pre-wrap">User does not exist</span>'
 
 
+@app.route('/user/<boardid>/getlastinvite')
+def get_last_invite(boardid):
+    invites = db.collection('chess').document('users').collection('users').document(boardid).get().to_dict()['invites']
+    if (len(invites) == 0):
+        return '<span style="white-space: pre-wrap">No invite pending</span>'
+    
+    for key in invites:
+        return '<span style="white-space: pre-wrap">Last Invite: ' + key + ';' + invites[key][0] + '!' + invites[key][1] + '</span>'
+
+
+@app.route('/user/<boardid>/leavegame')
+def leave_game(boardid):
+    db.collection('chess').document('users').collection('users').document(boardid).update({ 'ongoing_game' : '' })
+    return '<span style="white-space: pre-wrap">Left game successfully</span>'
+
+
 @app.route('/game/<game_code>')
 def get_code(game_code):
     game = db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()
-    return '<span style="white-space: pre-wrap">' + 'Total Moves: ' + str(game['movecount']) + '\nPlayers in Game: P1: ' + str(game['player1_id']) + '   P2: ' + str(game['player2_id']) + '\nTurn: ' + str(game['players_turn']) + '\nLast Move: ' + str(game['lastmove']) +'\nBoard:\n' + str(game['chessboard']) + '</span>'
+    board = chess.Board(game['fen'])
+    return '<span style="white-space: pre-wrap;font-family: &quot;Courier New&quot;;">' + 'Total Moves: ' + str(game['movecount']) + '\nPlayers in Game: P1: ' + str(game['player1_id']) + '   P2: ' + str(game['player2_id']) + '\nTurn: ' + str(game['players_turn']) + '\nLast Move: ' + str(game['lastmove']) + '\n' + board._repr_svg_() + '</span>'
+
+
+@app.route('/game/<game_code>/gamestate')
+def get_gamestate(game_code):
+    game = db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()
+    board = chess.Board(game['fen'])    
+    if (game['players_turn'] == game['player1_id'] ):
+        player_number = 'P1:'
+    else:
+        player_number = 'P2:'
+
+
+    return '<span style="white-space: pre-wrap">' + 'Turn: ' + player_number + str(game['players_turn']) + ', Last Move: ' + str(game['lastmove']) + ', Players: ' + 'P1:' + str(game['player1_id']) + ' P2:' + str(game['player2_id']) + ', Winner: ' + game['game_status'] + ', In Check: ' + game['in_check'] + '</span>'
 
 
 @app.route('/game/<game_code>/delete')
@@ -430,22 +519,45 @@ def is_turn_ready(game_code, user_id):
 
         if (game['players_joined'] == 1):
             return '<span style="white-space: pre-wrap">Waiting for opponent to join</span>'
-        elif (game['players_turn'] == user_id):
-            last_move = db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()['lastmove']
+
+        if(game['players_turn'] == 'CPU'):
+            board = chess.Board(game['fen'])
+            if (not board.is_game_over()):
+                result = engine.play(board, chess.engine.Limit(time=0.1))
+                make_move(game_code, 'CPU', str(result.move))
+                engine.quit()
+
+        status = game['game_status']
+        if ('R' in status):
+                return '<span style="white-space: pre-wrap">Opponent has resigned.</span>'
+
+        if (game['players_turn'] == user_id):
+            game = db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()
+            
+            in_check = game['in_check']
+            last_move = game['lastmove']
             if (len(last_move) == 0):
-                last_move = '-'
-            return '<span style="white-space: pre-wrap">Turn Ready - Last Move: ' + last_move + '</span>'
+                last_move = 'No previous move'
+                
+            return '<span style="white-space: pre-wrap">Turn Ready - Last Move: ' + last_move + ', In Check: ' + in_check + 'Winner: ' + game['game_status'] + '</span>'
         else:
-            return '<span style="white-space: pre-wrap">Turn Not Ready</span>'
+            return '<span style="white-space: pre-wrap">Turn Not Ready ' + 'Winner:'  + db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()['game_status'] + '</span>'
     except:
         return '<span style="white-space: pre-wrap">Game does not exist</span>'
 
 
+@app.route('/game/<game_code>/resign/<boardid>')
+def resign(game_code, boardid):
+    db.collection('chess').document('games').collection('games').document(game_code).update({ 'game_status':'R' })
+    db.collection('chess').document('users').collection('users').document(boardid).update({
+            'ongoing_game' : ''
+        })
+
+    return '<span style="white-space: pre-wrap">Resigned from game ' + game_code + '</span>'
+
+
 @app.route('/game/<game_code>/getlegalmoves')
 def get_all_moves(game_code):
-
-    def get_piece_number(pos):
-        return (ord(pos[0]) - 97) + ((ord(pos[1]) - 49) * 8)
 
     def get_piece_type(board, pos):
         piece_number = get_piece_number(pos)
@@ -477,14 +589,7 @@ def get_all_moves(game_code):
     legal_moves = {}
 
     for i in range(len(all_legal_moves)):
-        if(board.is_en_passant(chess.Move(get_piece_number(all_legal_moves[i][:2]), get_piece_number(all_legal_moves[i][2:])))):
-            all_legal_moves[i] = all_legal_moves[i] + 'E'
-        elif(board.is_capture(chess.Move(get_piece_number(all_legal_moves[i][:2]), get_piece_number(all_legal_moves[i][2:])))):
-            all_legal_moves[i] = all_legal_moves[i] + 'A'
-        if(board.is_kingside_castling(chess.Move(get_piece_number(all_legal_moves[i][:2]), get_piece_number(all_legal_moves[i][2:])))):
-            all_legal_moves[i] = all_legal_moves[i] + 'K'
-        if(board.is_queenside_castling(chess.Move(get_piece_number(all_legal_moves[i][:2]), get_piece_number(all_legal_moves[i][2:])))):
-            all_legal_moves[i] = all_legal_moves[i] + 'Q'
+        all_legal_moves[i] = add_move_modifiers(board, all_legal_moves[i])
 
         try:
             legal_moves[all_legal_moves[i][:2]].append(all_legal_moves[i][2:])
@@ -493,14 +598,31 @@ def get_all_moves(game_code):
 
     return '<span style="white-space: pre-wrap"> Legal moves:' + str(legal_moves) + '</span>'
 
-    
+
+@app.route('/game/<game_code>/undo')
+def undo(game_code):   
+    try:
+        prev_state = db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()['prev_state']
+        db.collection('chess').document('games').collection('games').document(game_code).set(prev_state)
+        return 'Undid.'
+    except:
+        return 'Cannot undo what is already undone.'
+
+
 @app.route('/game/<game_code>/makemove/<int:userId>/<move>')
-def existing_game(game_code, userId, move):
+def make_move(game_code, userId, move):
     game = db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()
- 
+
+    if('prev_state' in game):
+        del game['prev_state']
+
+    prev_state = dict(game)
+     
     board = chess.Board(game['fen'])
     if(game['players_turn'] == userId):
         try:
+
+            display_move = add_move_modifiers(board, move)
             board.push_uci(move)
             game['movecount'] += 1
             
@@ -509,20 +631,32 @@ def existing_game(game_code, userId, move):
             else:
                 game['players_turn'] = game['player1_id']
 
-            game['lastmove'] = move
+            game['lastmove'] = display_move
             game['chessboard'] = str(board)
             game['fen'] = board.fen()
 
-            db.collection('chess').document('games').collection('games').document(game_code).set(game)
+            if(board.is_check()):
+                game['in_check'] = 'Y!' + to_uci(board.king(board.turn))
+            else:
+                game['in_check'] = 'N'
 
-            return '<span style="white-space: pre-wrap">Success! Move:' + str(game['movecount']) + '\n' + move + '\n' + str(board) + '</span>'
+            if(board.is_checkmate()):
+                board = chess.Board(game['fen'])
+                
+                game['game_status'] = 'W:' + str(userId) + '!' + to_uci(board.king(board.outcome().winner)) + '|' + to_uci(board.king(board.turn))
+            else:
+                game['game_status'] = 'N'
+
+            db.collection('chess').document('games').collection('games').document(game_code).set(game)
+            db.collection('chess').document('games').collection('games').document(game_code).update({ 'prev_state' : prev_state })
+
+            return '<span style="white-space: pre-wrap">Success! Move:' + str(game['movecount']) + '\n' + display_move + '\n' + str(board) + '</span>'
 
         except Exception as exc:
             print(exc)
-            return '<span style="white-space: pre-wrap">Move not valid.</span>'
+            return '<span style="font-family: &quot;Courier New&quot;;white-space: pre-wrap">Move not valid.</span>'
     else:
         return '<span style="white-space: pre-wrap">It is not your turn.</span>'
-
 
 if __name__ == '__main__':
     app.run()

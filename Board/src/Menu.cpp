@@ -202,6 +202,7 @@ int8_t Menu::DisplayScrollingMenu(LCD_CharacterDisplay &LCD, const flat_vector<c
             if (currentPos / 2 == startLine) {
                 if (currentSelection >= 2) {
                     currentPos += 2;
+
                     currentSelection -= 2;
                 }
             }
@@ -359,8 +360,6 @@ uint16_t Menu::getButtonInput() {
 uint16_t Menu::setButtonInput(uint16_t newVal) {
     buttonInput = newVal;
 }
-
-
 
 Menu::ButtonDirection Menu::AwaitInput() {
     extern ButtonInterface g_buttons;
