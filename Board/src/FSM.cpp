@@ -78,9 +78,6 @@ void FSM::FSMController() {
             case FSM::State::INGAME:
                 FSM::InGame();
                 break;
-            // case FSM::State::INGAME_BOARDPREFERENCES:
-            //     FSM::InGameBoardPreferences();
-            //     break;
             case FSM::State::RESIGN:
                 FSM::Resign();
                 break;
@@ -106,7 +103,7 @@ void FSM::InitialConnection() {
             break;
 
         attempts++;
-        G8RTOS_SleepThread(2000);
+        G8RTOS_SleepThread(LCD_DISPLAY_TIME);
     }
 
     if (attempts == 3) { 
@@ -194,7 +191,7 @@ void FSM::Friends() {
     
     if (retVal == INVALID_RESPONSE || retVal == REQUEST_FAILED) {
         lcd.WriteMessageWrapped(serverResponse);
-        G8RTOS_SleepThread(3000);
+        G8RTOS_SleepThread(LCD_DISPLAY_TIME);
         return;
     }
 
@@ -249,36 +246,61 @@ void FSM::FriendsSelect() {
     } 
 }
 
+Semaphore waitingForFriendSem = { 0 };
+AwaitingMove friendStatus;
+
+void WaitForFriend(void) {
+    while (true) {
+        friendStatus = chessServer_awaitTurn();
+
+        if (friendStatus.status == SUCCESS) {
+            G8RTOS_ReleaseSemaphore(&waitingForFriendSem); // Locked by Create thread waiting for our response
+            G8RTOS_KillSelf();
+        }
+        G8RTOS_SleepThread(SERVER_PING_DELAY);
+    }
+}
+
 void FSM::FriendsSelectInvite() {
+
     int8_t retVal = chessServer_sendInvite(serverResponse, currentFriend->id);
 
     if (retVal == SUCCESS) {
         lcd.Clear();
-        char name[20];
-        lcd.WriteLineCentered("Waiting for", 0);
-        sprintf(name, "%s to join", currentFriend->name);
-        lcd.WriteLineCentered(name, 1);
 
-        lcd.WriteLineCentered("(*) Cancel", 3);
+        NewThreadStatus waitForFriendThr = G8RTOS_AddThread(WaitForFriend, 10, "WaitFriend");
 
-        while (true) {
-            for (uint32_t i = 0; i < 200; i++) {
-                if(g_buttons.GetCurrentButtonState().center) {
-                    retVal = chessServer_cancelInvite(currentFriend->id);
-                    currentFriend = nullptr;
-                    nextState = FSM::State::FRIENDS;
-                    return;
+        if (waitForFriendThr.status == G8RTOS_SUCCESS) {
+            char name[20];
+            lcd.WriteLineCentered("Waiting for", 0);
+            sprintf(name, "%s to join", currentFriend->name);
+            lcd.WriteLineCentered(name, 1);
+
+            lcd.WriteLineCentered("(*) Cancel", 3);
+
+            while (true) {
+                if (G8RTOS_IsSemaphoreAvailable(&waitingForFriendSem)) {
+                    G8RTOS_AcquireSemaphore(&waitingForFriendSem); // Semaphore released, friend joined game
+                
+                    nextState = State::DOWNLOAD_CURRENT_GAME;
+                    break;
+                } else {
+                    // Invite not yet accepted
+                    ButtonState btnState = g_buttons.GetCurrentButtonStatePoll();
+
+                    if (btnState.center) {
+                        chessServer_deleteGame();
+                        G8RTOS_KillThread(waitForFriendThr.id);
+
+                        nextState = FSM::State::FRIENDS_SELECT;
+                        break;
+                    } 
                 }
             }
-
-            AwaitingMove awaitRetVal = chessServer_awaitTurn();
-
-            if (awaitRetVal.status == SUCCESS) {
-                nextState = FSM::State::DOWNLOAD_CURRENT_GAME;
-                return;
-            }
-        }   
+        }
     } else {
+        lcd.WriteMessageWrapped(serverResponse);
+        G8RTOS_SleepThread(LCD_DISPLAY_TIME);
         nextState = FSM::State::FRIENDS_SELECT;
     }
 }
@@ -292,7 +314,7 @@ void FSM::FriendsSelectRemove() {
    if (buttonResponse == 0) {
        int8_t retVal = chessServer_removeFriend(serverResponse, currentFriend->id);
        lcd.WriteMessageWrapped(serverResponse);
-       G8RTOS_SleepThread(2000);
+       G8RTOS_SleepThread(LCD_DISPLAY_TIME);
    }
 
    nextState = FSM::State::FRIENDS;
@@ -317,7 +339,7 @@ void FSM::FriendsAdd() {
 
                 lcd.Clear();
                 lcd.WriteMessageWrapped(serverResponse);
-                G8RTOS_SleepThread(2000);
+                G8RTOS_SleepThread(LCD_DISPLAY_TIME);
                 if (retVal == INVALID_RESPONSE || retVal == REQUEST_FAILED)
                     nextState = FSM::State::FRIENDS_ADD;
                     return;
@@ -350,7 +372,7 @@ void FSM::FriendsAdd() {
                         incomingFriends.erase(incomingFriends[selection]);
 
                         lcd.WriteMessageWrapped(serverResponse);
-                        G8RTOS_SleepThread(2000);
+                        G8RTOS_SleepThread(LCD_DISPLAY_TIME);
                     }
                     else if (buttonResponse == 1) {
                         lcd.Clear();
@@ -359,7 +381,7 @@ void FSM::FriendsAdd() {
                         incomingFriends.erase(incomingFriends[selection]);
 
                         lcd.WriteMessageWrapped(serverResponse);
-                        G8RTOS_SleepThread(2000);
+                        G8RTOS_SleepThread(LCD_DISPLAY_TIME);
                     }
                 }
                 else
@@ -393,7 +415,7 @@ void FSM::FriendsAdd() {
 //                        outgoingFriends.erase(outgoingFriends[selection]);
 //
 //                        lcd.WriteMessageWrapped(serverResponse);
-//                        G8RTOS_SleepThread(2000);
+//                        G8RTOS_SleepThread(LCD_DISPLAY_TIME);
 //                    }
 //                    else {
 //                        continue;
@@ -436,7 +458,7 @@ void FSM::Settings() {
 //         char response[1024];
 //         chessServer_setName(response, newName);
 //         lcd.WriteMessageWrapped(response);
-//         DelayMs(3000);
+//         DelayMs(LCD_DISPLAY_TIME);
 //     }
 
 //     nextState = FSM::State::SETTINGS;
@@ -517,7 +539,7 @@ void WaitForOpponent(void) {
             G8RTOS_ReleaseSemaphore(&waitingForOpponentSem); // Locked by Create thread waiting for our response
             G8RTOS_KillSelf();
         }
-        G8RTOS_SleepThread(3000);
+        G8RTOS_SleepThread(SERVER_PING_DELAY);
     }
 }
 
@@ -557,7 +579,7 @@ void FSM::Create() {
         }
     } else {
         lcd.WriteMessageWrapped(serverResponse);
-        G8RTOS_SleepThread(2000);
+        G8RTOS_SleepThread(LCD_DISPLAY_TIME);
         nextState = State::JOIN_CREATE;
     }
 }
@@ -565,13 +587,12 @@ void FSM::Create() {
 void FSM::CPUGame() {
     int8_t retVal = chessServer_newGameCPU(serverResponse);
 
-    // lcd.WriteMessageWrapped(serverResponse);
-    // G8RTOS_SleepThread(2000);
-
     if (retVal == SUCCESS) {
         isCPUgame = true;
         nextState = State::DOWNLOAD_CURRENT_GAME;
     } else {
+        lcd.WriteMessageWrapped(serverResponse);
+        G8RTOS_SleepThread(LCD_DISPLAY_TIME);
         nextState = State::JOIN_CREATE;
     }
 }
@@ -586,8 +607,9 @@ void FSM::Join() {
         chessServer_setGameCode(gameCode);
         retVal = chessServer_joinGame(serverResponse);
 
+        lcd.Clear()
         lcd.WriteMessageWrapped(serverResponse);
-        G8RTOS_SleepThread(2000);
+        G8RTOS_SleepThread(LCD_DISPLAY_TIME);
 
         if(retVal == SUCCESS) {
             nextState = FSM::State::DOWNLOAD_CURRENT_GAME;
@@ -639,7 +661,7 @@ void WaitForInvite(void) {
             G8RTOS_KillSelf();
         }
 
-        G8RTOS_SleepThread(3000);
+        G8RTOS_SleepThread(SERVER_PING_DELAY);
     }
 
 }
