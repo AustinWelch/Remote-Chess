@@ -135,8 +135,6 @@ int8_t Menu::DisplayScrollingMenu(LCD_CharacterDisplay &LCD, const flat_vector<c
 
     ButtonDirection input;
 
-    LCD.DrawCursor(startLine, justification, prevPos, justification);
-
     while (true) {
 
         LCD.ClearLine(1);
@@ -148,11 +146,11 @@ int8_t Menu::DisplayScrollingMenu(LCD_CharacterDisplay &LCD, const flat_vector<c
         prevJustification = justification;
 
         for (int i = 1; i < 3; i++) {
-            if (i >= (listSize - (currentSelection / 4) * 4) && (listSize != 1 || i > 1)) {
+            if (i >= (listSize - (currentSelection / 4) * 4) && (i > 1 || (listSize - (currentSelection / 4) * 4) != 1)) {
                 break;
             }
             LCD.WriteLineMenuLeft(scrollItems[(currentSelection / 4) * 4 + ((i - 1) * 2)], i);
-            if (((listSize - (currentSelection / 4) * 4) != 3 || (listSize - (currentSelection / 4) * 4) != 1) && listSize != 1) {
+            if (((listSize - (currentSelection / 4) * 4) != 3 && (listSize - (currentSelection / 4) * 4) != 1)) {
                 LCD.WriteLineMenuRight(scrollItems[(currentSelection / 4) * 4 + (i * 2) - 1], i);
             }
         }
