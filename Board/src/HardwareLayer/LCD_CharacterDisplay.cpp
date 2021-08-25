@@ -60,7 +60,7 @@ void LCD_CharacterDisplay::Init() {
 
     //Clear();
 
-    uint8_t displayControl = LCD_DISPLAY_ON | LCD_CURSOR_ON;
+    uint8_t displayControl = LCD_DISPLAY_ON | LCD_CURSOR_OFF;
     WriteCommand(Command::DISPLAY_CONTROL, displayControl);
 
     uint8_t entryControl = LCD_ENTRY_INC;
@@ -209,55 +209,55 @@ void LCD_CharacterDisplay::WriteMessage(std::array<const char*, 4> lines) const 
 }
 
 void LCD_CharacterDisplay::WriteMessageWrapped(const char* msg) const { 
-    // char word[20] = "";
-    // char lineText[20] = "";
+     char word[20] = "";
+     char lineText[20] = "";
 
-    // const char* pt = msg;
+     const char* pt = msg;
 
-    // uint8_t line = 0;
-    // uint8_t linePos = 0;
-    // uint8_t wordPos = 0;
-    // while (true) {
-    //     if (*pt == '\0') {
-    //         if (strlen(lineText) == 0)
-    //             sprintf(lineText, "%s", word);
-    //         else
-    //             sprintf(lineText, "%s %s", lineText, word);
+     uint8_t line = 0;
+     uint8_t linePos = 0;
+     uint8_t wordPos = 0;
+     while (true) {
+         if (*pt == '\0') {
+             if (strlen(lineText) == 0)
+                 sprintf(lineText, "%s", word);
+             else
+                 sprintf(lineText, "%s %s", lineText, word);
 
-    //         WriteLineCentered(lineText, line);
-    //         return;
-    //     }
+             WriteLineCentered(lineText, line);
+             return;
+         }
 
-    //     if (linePos == 20) {
-    //         WriteLineCentered(lineText, line);
-    //         line++;
-    //         linePos = 0;
-    //         memset(lineText, 0, 20);
-    //         if (line == 4)
-    //             return;
-    //     }
+         if (linePos == 20) {
+             WriteLineCentered(lineText, line);
+             line++;
+             linePos = 0;
+             memset(lineText, 0, 20);
+             if (line == 4)
+                 return;
+         }
 
-    //     if (*pt == ' ') {
-    //         if (strlen(lineText) == 0)
-    //             sprintf(lineText, "%s", word);
-    //         else {
-    //             if (linePos == 19) {
-    //                 linePos++;
-    //                 continue;
-    //             }
-    //             sprintf(lineText, "%s %s", lineText, word);
-    //         }
-    //         memset(word, 0, 20);
-    //         wordPos = 0;
-    //         linePos++;
-    //         pt++;
-    //     }
+         if (*pt == ' ') {
+             if (strlen(lineText) == 0)
+                 sprintf(lineText, "%s", word);
+             else {
+                 if (linePos == 19) {
+                     linePos++;
+                     continue;
+                 }
+                 sprintf(lineText, "%s %s", lineText, word);
+             }
+             memset(word, 0, 20);
+             wordPos = 0;
+             linePos++;
+             pt++;
+         }
 
-    //     word[wordPos++] = *pt;
-    //     linePos++;
+         word[wordPos++] = *pt;
+         linePos++;
 
-    //     pt++;
-    // }
+         pt++;
+     }
 }
 
 void LCD_CharacterDisplay::ClearLine(uint8_t line) const {
