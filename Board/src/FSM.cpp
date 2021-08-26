@@ -9,6 +9,7 @@ using namespace RemoteChess;
 extern Board g_board;
 ButtonInterface g_buttons;
 
+const uint16_t SERVER_PING_DELAY = 3000;
 static char serverResponse[512];
 
 void FSM::FSMController() {
@@ -168,7 +169,7 @@ void FSM::Main_Menu() {
         } else if (buttonResp == 1) {
             nextState = FSM::State::SETTINGS;
         } else {
-            nextState = FSM::State::INGAME;
+            nextState = FSM::State::DOWNLOAD_CURRENT_GAME;
         }
     } else {
         buttonResp = menu.DisplayMenuLeftRight(lcd, {"Play", "Friends", "Settings", "Back", "", "", "", ""}, 1, 4);
@@ -607,7 +608,7 @@ void FSM::Join() {
         chessServer_setGameCode(gameCode);
         retVal = chessServer_joinGame(serverResponse);
 
-        lcd.Clear()
+        lcd.Clear();
         lcd.WriteMessageWrapped(serverResponse);
         G8RTOS_SleepThread(LCD_DISPLAY_TIME);
 
