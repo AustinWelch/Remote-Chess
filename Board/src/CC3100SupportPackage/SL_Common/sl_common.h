@@ -74,10 +74,10 @@
  * Values for below macros shall be modified per the access-point's (AP) properties
  * SimpleLink device will connect to following AP when the application is executed
  */
-static char SSID_NAME[100]   =    "The Welchs";         /* Access point name to connect to. */
+extern signed char SSID_NAME[100];         /* Access point name to connect to. */
 #define SEC_TYPE        SL_SEC_TYPE_WPA_WPA2    /* Security type of the Access piont */
 
-static char PASSKEY[100]     =    "Roundplanet246";                 /* Password in case of secure AP */
+extern char PASSKEY[100];                 /* Password in case of secure AP */
 #define PASSKEY_LEN     strlen(PASSKEY)  /* Password length in case of secure AP */
 
 /* Configuration of the device when it comes up in AP mode */

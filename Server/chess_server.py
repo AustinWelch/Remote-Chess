@@ -23,13 +23,22 @@ def get_piece_number(pos):
         return (ord(pos[0]) - 97) + ((ord(pos[1]) - 49) * 8)
 
 def add_move_modifiers(board, move):
-    if(board.is_en_passant(chess.Move(get_piece_number(move[:2]), get_piece_number(move[2:])))):
+    pos1 = get_piece_number(move[:2])
+    pos2 = get_piece_number(move[2:])
+
+    if(len(move[2:]) == 3):
+        if(move[4] == 'q'):
+            move = move[:4] + 'P'
+        else: 
+            return 'PROMOTION_COPY'
+
+    if(board.is_en_passant(chess.Move(pos1, pos2))):
         move = move + 'E'
-    elif(board.is_capture(chess.Move(get_piece_number(move[:2]), get_piece_number(move[2:])))):
+    elif(board.is_capture(chess.Move(pos1, pos2))):
         move = move + 'A'
-    if(board.is_kingside_castling(chess.Move(get_piece_number(move[:2]), get_piece_number(move[2:])))):
+    if(board.is_kingside_castling(chess.Move(pos1, pos2))):
         move = move + 'K'
-    if(board.is_queenside_castling(chess.Move(get_piece_number(move[:2]), get_piece_number(move[2:])))):
+    if(board.is_queenside_castling(chess.Move(pos1, pos2))):
         move = move + 'Q'
 
     return move
@@ -173,8 +182,7 @@ def create_new_game_cpu(boardid):
     board = chess.Board()
     id = createId()
     db.collection('chess').document('games').collection('games').document(id).set({
-          'chessboard' : str(board)
-        , 'fen' : board.fen()
+          'fen' : board.fen()
         , 'lastmove' : 'No previous move'
         , 'player1_id' : int(boardid)
         , 'player2_id' : 'CPU'
@@ -183,7 +191,6 @@ def create_new_game_cpu(boardid):
         , 'movecount' : 0
         , 'in_check' : 'N'
         , 'game_status' : 'O' #O -ongoing, R - opponent retired, W - winner decided
-        , 'prev_state' : {}
     })
     db.collection('chess').document('users').collection('users').document(boardid).update({
         'ongoing_game' : id
@@ -204,8 +211,7 @@ def create_new_game(boardid):
     board = chess.Board()
     id = createId()
     db.collection('chess').document('games').collection('games').document(id).set({
-          'chessboard' : str(board)
-        , 'fen' : board.fen()
+          'fen' : board.fen()
         , 'lastmove' : 'No previous move'
         , 'player1_id' : int(boardid)
         , 'player2_id' : 0
@@ -224,6 +230,10 @@ def create_new_game(boardid):
 @app.route('/user/<boardid>/joingame/<game_code>')
 def join_game(boardid, game_code):
     game = db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()
+    
+    if(not game):
+        return '<span style="white-space: pre-wrap">' + 'Game with code ' + game_code + ' does not exist!</span>'
+
     if(game['players_joined'] < 2):
         db.collection('chess').document('users').collection('users').document(boardid).update({
             'ongoing_game' : game_code
@@ -475,8 +485,7 @@ def get_code(game_code):
 
 @app.route('/game/<game_code>/gamestate')
 def get_gamestate(game_code):
-    game = db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()
-    board = chess.Board(game['fen'])    
+    game = db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()   
     if (game['players_turn'] == game['player1_id'] ):
         player_number = 'P1:'
     else:
@@ -522,10 +531,11 @@ def is_turn_ready(game_code, user_id):
 
         if(game['players_turn'] == 'CPU'):
             board = chess.Board(game['fen'])
+            stockfish.set_fen_position(game['fen'])
             if (not board.is_game_over()):
-                result = engine.play(board, chess.engine.Limit(time=0.1))
-                make_move(game_code, 'CPU', str(result.move))
-                engine.quit()
+                result = stockfish.get_best_move_time(50)
+                make_move(game_code, 'CPU', result)
+                game = db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()
 
         status = game['game_status']
         if ('R' in status):
@@ -539,10 +549,11 @@ def is_turn_ready(game_code, user_id):
             if (len(last_move) == 0):
                 last_move = 'No previous move'
                 
-            return '<span style="white-space: pre-wrap">Turn Ready - Last Move: ' + last_move + ', In Check: ' + in_check + 'Winner: ' + game['game_status'] + '</span>'
+            return '<span style="white-space: pre-wrap">Turn Ready - Last Move: ' + last_move + ', In Check: ' + in_check + ', Winner: ' + game['game_status'] + '</span>'
         else:
-            return '<span style="white-space: pre-wrap">Turn Not Ready ' + 'Winner:'  + db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()['game_status'] + '</span>'
-    except:
+            return '<span style="white-space: pre-wrap">Turn Not Ready ' + 'Winner: '  + db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()['game_status'] + '</span>'
+    except Exception as exc:
+        print(exc)
         return '<span style="white-space: pre-wrap">Game does not exist</span>'
 
 
@@ -591,14 +602,15 @@ def get_all_moves(game_code):
     for i in range(len(all_legal_moves)):
         all_legal_moves[i] = add_move_modifiers(board, all_legal_moves[i])
 
-        try:
-            legal_moves[all_legal_moves[i][:2]].append(all_legal_moves[i][2:])
-        except:
-            legal_moves[all_legal_moves[i][:2]] = [get_piece_type(board, all_legal_moves[i][:2]), all_legal_moves[i][2:]]
+        if(all_legal_moves[i] != 'PROMOTION_COPY'):
+            try:
+                legal_moves[all_legal_moves[i][:2]].append(all_legal_moves[i][2:])
+            except:
+                legal_moves[all_legal_moves[i][:2]] = [get_piece_type(board, all_legal_moves[i][:2]), all_legal_moves[i][2:]]
 
     return '<span style="white-space: pre-wrap"> Legal moves:' + str(legal_moves) + '</span>'
 
-
+    
 @app.route('/game/<game_code>/undo')
 def undo(game_code):   
     try:
@@ -660,3 +672,4 @@ def make_move(game_code, userId, move):
 
 if __name__ == '__main__':
     app.run()
+

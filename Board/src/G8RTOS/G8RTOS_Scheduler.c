@@ -12,7 +12,7 @@
 #include "G8RTOS_Structures.h"
 #include "G8RTOS_Semaphores.h"
 #include "G8RTOS_CriticalSection.h"
-#include "inc/ClockSys.h"
+#include "ClockSys.h"
 #include <string.h>
 
 /* Status Register with the Thumb-bit Set */

@@ -63,7 +63,9 @@ namespace RemoteChess {
         bool turnReady;
         bool isGameRunning = false;
         bool isCPUgame = false;
-        
+
+        const uint16_t LCD_DISPLAY_TIME = 2000;
+
         public:
         FSM(State initialState = State::INITIAL_CONNECTION) : curState(initialState) { }
 

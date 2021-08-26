@@ -66,58 +66,6 @@ ButtonInterface::ButtonInterface() {
 
 // Delays for 1ms for debouncing
 ButtonState ButtonInterface::GetCurrentButtonState() {
-    // ButtonState before = {
-    //       !(P8->IN & BIT3) // Up
-    //     , !(P6->IN & BIT3) // Down
-    //     , !(P9->IN & BIT1) // Left
-    //     , !(P9->IN & BIT3) // Right
-    //     , !(P7->IN & BIT2) // Center
-    // };
-
-    // G8RTOS_SleepThread(1);
-
-    // ButtonState after = {
-    //       !(P8->IN & BIT3) // Up
-    //     , !(P6->IN & BIT3) // Down
-    //     , !(P9->IN & BIT1) // Left
-    //     , !(P9->IN & BIT3) // Right
-    //     , !(P7->IN & BIT2) // Center
-    // };
-
-    // return {
-    //       before.up     && after.up     // Up
-    //     , before.down   && after.down   // Down
-    //     , before.left   && after.left   // Left
-    //     , before.right  && after.right  // Right
-    //     , before.center && after.center // Center
-    // };
-    // G8RTOS_SleepThread(1);
-
-    // if (P6->IFG & BIT3) {
-    //     P6->IFG &= ~BIT3;
-    //     buttons.down = true;
-    // }
-    
-    // if (P7->IFG & BIT2) {
-    //     P7->IFG &= ~BIT2;
-    //     buttons.center = true;
-    // }
-    
-    // if (P8->IFG & BIT3) {
-    //     P8->IFG &= ~BIT3;
-    //     buttons.up = true;
-    // }
-    
-    // if (P9->IFG & BIT1) {
-    //     P9->IFG &= ~BIT1;
-    //     buttons.left = true;
-    // }
-    
-    // if (P9->IFG & BIT3) {
-    //     P9->IFG &= ~BIT3;
-    //     buttons.right = true;
-    // }
-
     ButtonState before = {
           !(P8->IN & BIT3) // Up
         , !(P6->IN & BIT3) // Down
@@ -126,7 +74,7 @@ ButtonState ButtonInterface::GetCurrentButtonState() {
         , !(P7->IN & BIT2) // Center
     };
 
-    G8RTOS_SleepThread(10);
+    G8RTOS_SleepThread(100);
 
     ButtonState after = {
           !(P8->IN & BIT3) // Up
@@ -143,13 +91,6 @@ ButtonState ButtonInterface::GetCurrentButtonState() {
         , !(before.right)  && after.right  // Right
         , !(before.center) && after.center // Center
     };
-
-    // G8RTOS_SleepThread(1);
-
-    // ButtonState toReturn = buttons;
-    // resetButtons();
-
-    // return toReturn;
 }
 
 ButtonState ButtonInterface::GetCurrentButtonStatePoll() const {
@@ -196,12 +137,6 @@ void ButtonInterface::resetButtons() {
 }
 
 bool ButtonInterface::isButtonPressed() {
-    // return !(P8->IN & BIT3) // Up
-    //     || !(P6->IN & BIT3) // Down
-    //     || !(P9->IN & BIT1) // Left
-    //     || !(P9->IN & BIT3) // Right
-    //     || !(P7->IN & BIT2); // Center
-
     return !(buttons.up) // Up
         || !(buttons.down) // Down
         || !(buttons.left) // Left
