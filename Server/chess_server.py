@@ -14,7 +14,7 @@ try:
 except:
     pass
 
-engine = chess.engine.SimpleEngine.popen_uci("./stockfish_13_win_x64\stockfish_13_win_x64.exe")
+engine = chess.engine.SimpleEngine.popen_uci(".\stockfish_13_win_x64\stockfish_13_win_x64.exe")
 
 app = Flask(__name__)
 
@@ -22,13 +22,18 @@ app = Flask(__name__)
 def get_piece_number(pos):
         return (ord(pos[0]) - 97) + ((ord(pos[1]) - 49) * 8)
 
-def add_move_modifiers(board, move):
+def add_move_modifiers(board, move, is_move=False):
     pos1 = get_piece_number(move[:2])
     pos2 = get_piece_number(move[2:])
 
     if(len(move[2:]) == 3):
-        if(move[4] == 'q'):
+        if(is_move):
+            promoted_piece = move[4:]
+            move = move[:4] + 'P' + promoted_piece.upper()
+
+        elif(move[4] == 'q'):
             move = move[:4] + 'P'
+        
         else: 
             return 'PROMOTION_COPY'
 
@@ -106,7 +111,7 @@ def get_game(boardid):
         else:
             game = db.collection('chess').document('games').collection('games').document(ongoing_game).get().to_dict()
             print(boardid)
-            if (boardid == str(game['player1_id'])):
+            if (boardid == game['player1_id']):
                 player_color = 'WHITE'
             else:
                 player_color = 'BLACK'
@@ -169,35 +174,6 @@ def get_friends(boardid):
         return '<span style="white-space: pre-wrap">User does not exist!</span>'
 
 
-@app.route('/user/<boardid>/newgamecpu')
-def create_new_game_cpu(boardid):
-    def createId():
-        id = ''.join(random.choice(string.digits) for _ in range(6))
-
-        if(db.collection('chess').document('games').collection('games').document(id).get().to_dict()):
-            return createId()
-            
-        return id
-
-    board = chess.Board()
-    id = createId()
-    db.collection('chess').document('games').collection('games').document(id).set({
-          'fen' : board.fen()
-        , 'lastmove' : 'No previous move'
-        , 'player1_id' : int(boardid)
-        , 'player2_id' : 'CPU'
-        , 'players_joined' : 2
-        , 'players_turn' : int(boardid)
-        , 'movecount' : 0
-        , 'in_check' : 'N'
-        , 'game_status' : 'O' #O -ongoing, R - opponent retired, W - winner decided
-    })
-    db.collection('chess').document('users').collection('users').document(boardid).update({
-        'ongoing_game' : id
-    })
-    return '<span style="white-space: pre-wrap">' + 'New game vs CPU created!\nId: ' + id + '\n</span>'
-
-
 @app.route('/user/<boardid>/newgame')
 def create_new_game(boardid):
     def createId():
@@ -213,10 +189,10 @@ def create_new_game(boardid):
     db.collection('chess').document('games').collection('games').document(id).set({
           'fen' : board.fen()
         , 'lastmove' : 'No previous move'
-        , 'player1_id' : int(boardid)
+        , 'player1_id' : boardid
         , 'player2_id' : 0
         , 'players_joined' : 1
-        , 'players_turn' : int(boardid)
+        , 'players_turn' : boardid
         , 'movecount' : 0
         , 'in_check' : 'N'
         , 'game_status' : 'O' #O -ongoing, R - opponent retired, W - winner decided
@@ -224,7 +200,33 @@ def create_new_game(boardid):
     db.collection('chess').document('users').collection('users').document(boardid).update({
         'ongoing_game' : id
     })
-    return '<span style="white-space: pre-wrap">' + 'New game created!\nId: ' + id + '\n</span>'
+    return '<span style="white-space: pre-wrap">' + 'New game created!\nId: ' + id + ' \n</span>'
+
+
+@app.route('/user/<boardid>/newgamecpu')
+def create_new_game_cpu(boardid):
+    return_string = create_new_game(boardid)
+    id = return_string.split(' ')[5]
+
+    db.collection('chess').document('games').collection('games').document(id).update({
+          'player2_id' : 'CPU'
+        , 'players_joined' : 2
+    })
+
+    return '<span style="white-space: pre-wrap">' + 'New game vs CPU created!\nId: ' + id + '\n</span>'
+
+
+@app.route('/user/<boardid>/newgamelocal')
+def create_new_game_local(boardid):
+    return_string = create_new_game(boardid)
+    id = return_string.split(' ')[5]
+
+    db.collection('chess').document('games').collection('games').document(id).update({
+          'player2_id' : 'LOCAL_PLAY'
+        , 'players_joined' : 2
+    })
+
+    return '<span style="white-space: pre-wrap">' + 'New local game created!\nId: ' + id + '\n</span>'
 
 
 @app.route('/user/<boardid>/joingame/<game_code>')
@@ -238,10 +240,10 @@ def join_game(boardid, game_code):
         db.collection('chess').document('users').collection('users').document(boardid).update({
             'ongoing_game' : game_code
         })
-        game['player2_id'] = int(boardid)
+        game['player2_id'] = boardid
         game['players_joined'] = 2
         db.collection('chess').document('games').collection('games').document(game_code).set(game)
-        return '<span style="white-space: pre-wrap">' + 'Successfully joined game: ' + str(game_code) + '\n</span>'
+        return '<span style="white-space: pre-wrap">' + 'Successfully joined game: ' + game_code + '\n</span>'
     elif(game['player1_id'] == boardid or game['player2_id'] == boardid):
         return '<span style="white-space: pre-wrap">' + 'You have already joined this game!' '\n</span>'
     else:
@@ -514,13 +516,9 @@ def delete_game(game_code):
         return '<span style="white-space: pre-wrap">Game not found\n</span>'
 
 
-@app.route('/game/<game_code>/getboard')
-def get_board(game_code):
-    return '<span style="white-space: pre-wrap">' + db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()['chessboard'] + '</span>'
-
-
-@app.route('/game/<game_code>/turnready/<int:user_id>')
+@app.route('/game/<game_code>/turnready/<user_id>')
 def is_turn_ready(game_code, user_id):
+    print(user_id)
     try:
         game = db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()
         if (game['player1_id'] != user_id and game['player2_id'] != user_id):
@@ -559,9 +557,15 @@ def is_turn_ready(game_code, user_id):
 
 @app.route('/game/<game_code>/resign/<boardid>')
 def resign(game_code, boardid):
-    db.collection('chess').document('games').collection('games').document(game_code).update({ 'game_status':'R' })
-    db.collection('chess').document('users').collection('users').document(boardid).update({
-            'ongoing_game' : ''
+    game = db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()
+    board = chess.Board(game['fen'])
+
+    new_status = 'R:' + boardid + '!' + to_uci(board.king(board.turn)) + '|' + to_uci(board.king(not board.turn))
+    db.collection('chess').document('games').collection('games').document(game_code).update({ 'game_status':new_status })
+
+    if(boardid != 'LOCAL_PLAY'):
+        db.collection('chess').document('users').collection('users').document(boardid).update({
+                'ongoing_game' : ''
         })
 
     return '<span style="white-space: pre-wrap">Resigned from game ' + game_code + '</span>'
@@ -621,7 +625,7 @@ def undo(game_code):
         return 'Cannot undo what is already undone.'
 
 
-@app.route('/game/<game_code>/makemove/<int:userId>/<move>')
+@app.route('/game/<game_code>/makemove/<userId>/<move>')
 def make_move(game_code, userId, move):
     game = db.collection('chess').document('games').collection('games').document(game_code).get().to_dict()
 
@@ -633,8 +637,7 @@ def make_move(game_code, userId, move):
     board = chess.Board(game['fen'])
     if(game['players_turn'] == userId):
         try:
-
-            display_move = add_move_modifiers(board, move)
+            display_move = add_move_modifiers(board, move, True)
             board.push_uci(move)
             game['movecount'] += 1
             
@@ -644,7 +647,6 @@ def make_move(game_code, userId, move):
                 game['players_turn'] = game['player1_id']
 
             game['lastmove'] = display_move
-            game['chessboard'] = str(board)
             game['fen'] = board.fen()
 
             if(board.is_check()):
@@ -672,4 +674,3 @@ def make_move(game_code, userId, move):
 
 if __name__ == '__main__':
     app.run()
-
