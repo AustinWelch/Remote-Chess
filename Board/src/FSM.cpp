@@ -52,6 +52,9 @@ void FSM::FSMController() {
             case FSM::State::SETTINGS:
                 FSM::Settings();
                 break;
+            case FSM::State::SETTINGS_BRIGHTNESS:
+                FSM::SettingsBrightness();
+                break;
             // case FSM::State::SETTINGS_BOARDPREFERENCES:
             //     FSM::SettingsBoardPreferences();
             //     break;
@@ -63,6 +66,9 @@ void FSM::FSMController() {
                 break;
             case FSM::State::CREATE:
                 FSM::Create();
+                break;
+            case FSM::State::SELECT_GAME_TYPE:
+                FSM::SelectGameType();
                 break;
             case FSM::State::CPU_GAME:
                 FSM::CPUGame();
@@ -83,6 +89,8 @@ void FSM::FSMController() {
                 FSM::Resign();
                 break;
             default:
+                lcd.WriteLineCentered("State not", 1);
+                lcd.WriteLineCentered("Implemented", 2);
                 G8RTOS_SleepThread(1000);
                 break;
         }
@@ -119,7 +127,6 @@ void FSM::InitialConnection() {
     }
 
     if (chessServer_getCurrentGame() == SUCCESS) {
-        isGameRunning = true;
         nextState = State::DOWNLOAD_CURRENT_GAME;
     } else {
         nextState = State::NOGAME;
@@ -143,9 +150,16 @@ void FSM::InitialConnection() {
 // }
 
 void FSM::DownloadCurrentGame() {
+    // TODO: Check if local game
     lcd.WriteLine("Downloading game...", 0);
-	g_board.UpdateFromServer();
+	GameState gameState = g_board.UpdateFromServer();
+
+    if (gameState.playType == PlayType::LOCAL) {
+        isLocalGame = true;
+        localPlayerTurn = gameState.localPlayTurn;
+    }
     
+    isGameRunning = true;
     nextState = State::INGAME;
 }
 
@@ -169,7 +183,7 @@ void FSM::Main_Menu() {
         } else if (buttonResp == 1) {
             nextState = FSM::State::SETTINGS;
         } else {
-            nextState = FSM::State::DOWNLOAD_CURRENT_GAME;
+            nextState = FSM::State::INGAME;
         }
     } else {
         buttonResp = menu.DisplayMenuLeftRight(lcd, {"Play", "Friends", "Settings", "Back", "", "", "", ""}, 1, 4);
@@ -436,10 +450,10 @@ void FSM::FriendsAdd() {
 
 void FSM::Settings() {
     lcd.WriteLineCentered("Settings", 0);
-    uint8_t buttonResponse = menu.DisplayMenuLeftRight(lcd, {"Board Pref", "WIFI", "Name", "Back", "", "", "", ""}, 1, 4);
+    uint8_t buttonResponse = menu.DisplayMenuLeftRight(lcd, {"Brightness", "WIFI", "Name", "Back", "", "", "", ""}, 1, 4);
    
     if (buttonResponse == 0) {
-        //nextState = FSM::State::SETTINGS_BOARDPREFERENCES;
+        nextState = FSM::State::SETTINGS_BRIGHTNESS;
     } else if (buttonResponse == 1) {
         //nextState = FSM::State::SETTINGS_WIFI;
     } else if (buttonResponse == 2) {
@@ -447,6 +461,27 @@ void FSM::Settings() {
     } else {
         nextState = FSM::State::MAIN_MENU;
     }
+}
+
+void FSM::SettingsBrightness() {
+    lcd.WriteLineCentered("Set Brightness", 0);
+    uint8_t buttonResponse = menu.DisplayMenuLeftRight(lcd, {"Low", "Medium", "High", "Max", "", "", "", ""}, 1, 4);
+
+    if (buttonResponse == 0) {
+        g_board.SetBrightness(Brightness::LOW);
+    } else if (buttonResponse == 1) {
+        g_board.SetBrightness(Brightness::MEDIUM);
+    } else if (buttonResponse == 2) {
+        g_board.SetBrightness(Brightness::HIGH);
+    } else if (buttonResponse == 3) {
+        g_board.SetBrightness(Brightness::MAX);
+    }
+
+    lcd.Clear();
+    lcd.WriteLineCentered("Brightness set", 1);
+    G8RTOS_SleepThread(1000);
+
+    nextState = FSM::State::SETTINGS;
 }
 
 // void FSM::SettingsNameChange() {
@@ -521,11 +556,27 @@ void FSM::JoinCreate() {
     if (buttonResponse == 0) {
         nextState = FSM::State::JOIN;
     } else if (buttonResponse == 1) {
-        nextState = FSM::State::CREATE;
+        nextState = FSM::State::SELECT_GAME_TYPE;
     } else if (buttonResponse == 2) {
         nextState = FSM::State::CPU_GAME;
     } else {
         nextState = FSM::State::MAIN_MENU;        
+    }
+}
+
+void FSM::SelectGameType() {
+    uint8_t buttonResponse = menu.DisplayMenuLeft(lcd, { "Online Game", "Local Game", "Back" }, 0, 3);
+
+    if (buttonResponse == 0) {
+        nextState = FSM::State::CREATE;
+    } else if (buttonResponse == 1) {
+        isLocalGame = true;
+        localPlayerTurn = PlayerColor::WHITE;
+
+        chessServer_newGameLocal();
+        nextState = FSM::State::DOWNLOAD_CURRENT_GAME;
+    } else if (buttonResponse == 2) {
+        nextState = FSM::State::MAIN_MENU;
     }
 }
 
@@ -670,6 +721,7 @@ void WaitForInvite(void) {
 void FSM::NoGame() {
     isGameRunning = false;
     isCPUgame = false;
+    isLocalGame = false;
 
     NewThreadStatus waitForInviteThr = G8RTOS_AddThread(WaitForInvite, 10, "WaitInvite");
 
@@ -711,22 +763,83 @@ void FSM::InGame() {
 
     ButtonState btnState = g_buttons.GetCurrentButtonStatePoll();
 
-    if (g_board.GetCurrentState() == Board::BoardState::AWAITING_LOCAL_MOVE) {
+    auto promotion = g_board.GetPromotionInProgress();
+    if (promotion.HasValue()) {
+        const char* pieceName;
+
+        switch(promotion.Value()) {
+            case PromotionType::QUEEN:
+                pieceName = "Queen";
+                break;
+            case PromotionType::KNIGHT:
+                pieceName = "Knight";
+                break;
+            case PromotionType::ROOK:
+                pieceName = "Rook";
+                break;
+            case PromotionType::BISHOP:
+                pieceName = "Bishop";
+                break;
+            default:
+                pieceName = "Error";
+                break;
+        }
+
+        lcd.WriteFullLineCentered("Promote pawn to", 1);
+        lcd.WriteFullLineCentered(pieceName, 2);
+        lcd.ClearLine(3);
+        G8RTOS_SleepThread(10);
+    } else if (g_board.GetCurrentState() == Board::BoardState::AWAITING_LOCAL_MOVE) {
+        if (g_board.MustSelectPromotion()) {
+            lcd.WriteFullLineCentered("Select Promotion", 1);
+            lcd.ClearLine(2);
+            lcd.ClearLine(3);
+
+            uint8_t selection = menu.DisplayMenuLeftRight(lcd, { "Queen", "Knight", "Rook", "Bishop", "", "", "", "" }, 2, 4);
+            PromotionType promType;
+
+            if (selection == 0)
+                promType = PromotionType::QUEEN;
+            else if (selection == 1)
+                promType = PromotionType::KNIGHT;
+            else if (selection == 2)
+                promType = PromotionType::ROOK;
+            else if (selection == 3)
+                promType = PromotionType::BISHOP;
+
+            g_board.SetPromotionType(promType);
+        }
+
         lcd.WriteFullLineCentered("(^) Main Menu", 2);
         lcd.WriteFullLineCentered("(v) Resign", 3);
 
         if (g_board.IsPotentialLocalMoveValid()) {
             lcd.WriteFullLineCentered("(*) Submit Move", 1);
+        } else if (isLocalGame) {
+            lcd.WriteFullLineCentered(localPlayerTurn == PlayerColor::WHITE ? "White to move" : "Black to move", 1);
         } else {
             lcd.WriteFullLineCentered("Make your move", 1);
         }
         
-        
         if (btnState.center) {
-            RemoteChess::optional<Move> localMove = g_board.SubmitCurrentLocalMove();
+            RemoteChess::optional<Move> localMove = g_board.SubmitCurrentLocalMove(isLocalGame);
 
             if (localMove.HasValue()) {
-                chessServer_makeMove(localMove->GetAlgabreic().data());
+                chessServer_makeMove(localMove->GetAlgabreic().data(), isLocalGame && localPlayerTurn == PlayerColor::BLACK);
+
+                if (isLocalGame) {
+                    ServerGameState gameState = chessServer_getGameState();
+
+                    if (gameState.inCheckmate) {
+                        g_board.WinLocal(localPlayerTurn, Cell(gameState.algabreicKingPosWinner), Cell(gameState.algabreicKingPosCheck));
+                    } else if (gameState.inCheck) {
+                        g_board.SetCheck(Cell(gameState.algabreicKingPosCheck));
+                    }
+
+                    g_board.UpdateLegalMoves();
+                }
+
+                localPlayerTurn = localPlayerTurn == PlayerColor::WHITE ? PlayerColor::BLACK : PlayerColor::WHITE;
                 lcd.Clear();
             }
         } else if (btnState.up) {
@@ -830,7 +943,37 @@ void FSM::InGame() {
                 break;
             }
         }
-    }
+    } else if (g_board.GetCurrentState() == Board::BoardState::LOCAL_WHITE_WIN) {
+        lcd.WriteFullLineCentered("White is victorious!", 1);
+        lcd.WriteFullLineCentered("(*) Continue", 2);
+
+        while (true) {
+            if (g_buttons.GetCurrentButtonState().center) {
+                g_board.GoToIdle();
+
+                chessServer_leaveGame();
+
+                nextState = State::NOGAME;
+                isGameRunning = false;
+                break;
+            }
+        }
+    } else if (g_board.GetCurrentState() == Board::BoardState::LOCAL_BLACK_WIN) {
+        lcd.WriteFullLineCentered("Black is victorious!", 1);
+        lcd.WriteFullLineCentered("(*) Continue", 2);
+
+        while (true) {
+            if (g_buttons.GetCurrentButtonState().center) {
+                g_board.GoToIdle();
+
+                chessServer_leaveGame();
+
+                nextState = State::NOGAME;
+                isGameRunning = false;
+                break;
+            }
+        }
+    } 
 }
 
 void FSM::Resign() {

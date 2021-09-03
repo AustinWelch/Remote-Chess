@@ -35,11 +35,13 @@ namespace RemoteChess {
             , FRIENDS_SELECT_INVITE
             , FRIENDS_SELECT_REMOVE
             , SETTINGS
+            , SETTINGS_BRIGHTNESS
             , SETTINGS_BOARDPREFERENCES
             , SETTINGS_WIFI
             , SETTINGS_NAMECHANGE
             , RESIGN
             , CREATE
+            , SELECT_GAME_TYPE
             , CPU_GAME
             , JOIN
             , JOIN_CREATE
@@ -52,6 +54,7 @@ namespace RemoteChess {
         };
 
         private:
+
         State curState;
         State nextState;
         bool didChangeState = false;
@@ -63,7 +66,9 @@ namespace RemoteChess {
         bool turnReady;
         bool isGameRunning = false;
         bool isCPUgame = false;
-
+        bool isLocalGame = false;
+        PlayerColor localPlayerTurn = PlayerColor::WHITE;
+        
         const uint16_t LCD_DISPLAY_TIME = 2000;
 
         public:
@@ -88,10 +93,12 @@ namespace RemoteChess {
         void FriendsSelectInvite();
         void FriendsSelectRemove();
         void Settings();
+        void SettingsBrightness();
         // void SettingsBoardPreferences();
         // void SettingsWifi();
         // void SettingsNameChange();
         void JoinCreate();
+        void SelectGameType();
         void Create();
         void CPUGame();
         void Join();

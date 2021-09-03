@@ -43,6 +43,14 @@ void LedMatrix::SetAll(const RGB& color) {
     }
 }
 
+void LedMatrix::Dim(Brightness brightness) {
+    for (auto& rank : grid) {
+        for (RGB& cellColor : rank) {
+            cellColor = RGB(cellColor, brightness);
+        }
+    }
+}
+
 void LedMatrix::DrawChecker(const RGB& lightColor) {
     const RGB* checkerColor = &Colors::BLACK;
 
@@ -58,6 +66,30 @@ void LedMatrix::DrawChecker(const RGB& lightColor) {
 
         if (checkerColor == &Colors::BLACK)
             checkerColor = &lightColor;
+        else
+            checkerColor = &Colors::BLACK;
+    }
+}
+
+void LedMatrix::DrawSplitChecker(const RGB& lightColor1, const RGB& lightColor2) {
+    const RGB* checkerColor = &Colors::BLACK;
+    const RGB* lightColor = &lightColor1;
+
+    for (uint8_t rank = 0; rank < 8; rank++) {
+        for (uint8_t file = 0; file < 8; file++) {
+            SetCell(Cell(file, rank), *checkerColor);
+
+            if (checkerColor == &Colors::BLACK)
+                checkerColor = lightColor;
+            else
+                checkerColor = &Colors::BLACK;
+        }
+
+        if (rank == 3)
+            lightColor = &lightColor2;
+
+        if (checkerColor == &Colors::BLACK)
+            checkerColor = lightColor;
         else
             checkerColor = &Colors::BLACK;
     }

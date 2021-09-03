@@ -4,9 +4,10 @@
 Semaphore g_wifiSem = { 1 };
 
 
-signed char SSID_NAME[100]   =    "BIGBALLER"   ;      /* Access point name to connect to. */
-char PASSKEY[100]     =    "whatdoesthefoxsay";                  /* Password in case of secure AP */
-
+signed char SSID_NAME[100]   =    "10-1023@The_niche"   ;      /* Access point name to connect to. */
+char PASSKEY[100]     =    "tnxd5ZAxJ";                  /* Password in case of secure AP */
+// signed char SSID_NAME[100]   =    "10-1026@The_niche"   ;      /* Access point name to connect to. */
+// char PASSKEY[100]     =    "tY7P8FeXt";                  /* Password in case of secure AP */
 
 char requestTemplate[150];
 char requestBody[100];
@@ -71,10 +72,12 @@ uint8_t chessServer_init(uint32_t conntype)
     return 0;
 }
 
-int8_t chessServer_makeMove(char *move)
+int8_t chessServer_makeMove(char *move, bool localP2)
 {
-    sprintf(requestBody, "/game/%s/makemove/%i/%s", gameCode, boardID, move);
-
+    if (localP2)
+        sprintf(requestBody, "/game/%s/makemove/LOCAL_PLAY/%s", gameCode, move);
+    else
+        sprintf(requestBody, "/game/%s/makemove/%i/%s", gameCode, boardID, move);
     
     if (buildAndSendReq(parsedResponse))
     {
@@ -151,15 +154,39 @@ int8_t chessServer_newGameCPU(char *response)
         return REQUEST_FAILED;
 }
 
+int8_t chessServer_newGameLocal() {
+    sprintf(requestBody, "/user/%i/newgamelocal", boardID);
+
+    if (buildAndSendReq(parsedResponse))
+    {
+        //strcpy(response, parsedResponse);
+        char* pt = strstr(parsedResponse, "Id:");
+
+        if (pt) {
+            strncpy(gameCode, pt + 4, 20);
+            gameCode[6] = '\0';
+            return SUCCESS;
+        } else
+            return INVALID_RESPONSE;
+    }
+    else
+        return REQUEST_FAILED;
+}
+
 ServerGameState chessServer_getGameState()
 {
     ServerGameState retValue;
+    retValue.inCheckmate = false;
 
     sprintf(requestBody, "/game/%s/gamestate", gameCode);
 
-    
     if (buildAndSendReq(parsedResponse))
     {
+        if (strstr(parsedResponse, "LOCAL_PLAY"))
+            retValue.playType = SERVER_LOCAL_PLAY;
+        else
+            retValue.playType = SERVER_ONLINE_PLAY;
+
         const char* winner = strstr(parsedResponse, "Winner: W");
 
         if (winner) {
@@ -182,6 +209,8 @@ ServerGameState chessServer_getGameState()
 
             strncpy(retValue.algabreicKingPosCheck, strstr(winner, "|") + 1, 2);
             retValue.algabreicKingPosCheck[2] = '\0';
+
+            retValue.inCheckmate = true;
 
             if (retValue.status == SERVER_WON_GAME) {
                 return retValue;
@@ -218,8 +247,8 @@ ServerGameState chessServer_getGameState()
             char* algabreic = strstr(parsedResponse, "Last Move");
             algabreic += 11;
 
-            strncpy(retValue.algabreicLastMove, algabreic, 5);
-            retValue.algabreicLastMove[5] = '\0';
+            strncpy(retValue.algabreicLastMove, algabreic, 7);
+            retValue.algabreicLastMove[7] = '\0';
 
             retValue.hasLastMove = true;
         } else {
@@ -332,8 +361,8 @@ AwaitingMove chessServer_awaitTurn()
         char* algabreic = strstr(parsedResponse, "Last Move");
         algabreic += 11;
 
-        strncpy(retValue.algabreic, algabreic, 5);
-        retValue.algabreic[5] = '\0';
+        strncpy(retValue.algabreic, algabreic, 7);
+        retValue.algabreic[7] = '\0';
 
         char* check = strstr(parsedResponse, "In Check: Y");
 

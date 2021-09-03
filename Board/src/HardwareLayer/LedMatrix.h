@@ -6,6 +6,13 @@
 namespace RemoteChess {
 	class LedMatrix;
 
+	enum class Brightness {
+		  LOW = 5
+		, MEDIUM = 3
+		, HIGH = 2
+		, MAX = 1
+	};
+
 	class RGB {
 		uint8_t red, green, blue;
 
@@ -54,6 +61,9 @@ namespace RemoteChess {
 		constexpr RGB() : RGB(0, 0, 0) { };
 		// Alpha is not saved. Higher alpha is darker. Cannot be 0
 		constexpr RGB(const RGB& color, uint8_t alpha) : RGB(color.Red() / alpha, color.Green() / alpha, color.Blue() / alpha) { }
+		// Alpha is not saved
+		constexpr RGB(const RGB& color, Brightness brightness) : RGB(color, (uint8_t) brightness) { }
+
 
 		constexpr uint8_t Red() const { return reverse_byte(~red); }
 		constexpr uint8_t Green() const { return reverse_byte(~green); }
@@ -89,7 +99,9 @@ namespace RemoteChess {
 		void SetCell(const Cell& cell, const RGB& color);
 		void SetCells(const RemoteChess::flat_vector<Cell, 32>& cells, const RGB& color);
 		void SetAll(const RGB& color);
+		void Dim(Brightness brightness); // Permanently affects colors and must be redrawn to bring back to full brightness
 		void DrawChecker(const RGB& lightColor = Colors::WHITE);
+		void DrawSplitChecker(const RGB& lightColor1, const RGB& lightColor2);
 		void DrawRainbow();
 		void Refresh() const; // Display the changes to LED matrix to the human
 	};

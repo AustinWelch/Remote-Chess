@@ -18,6 +18,15 @@ namespace RemoteChess {
         WHITE, BLACK
     };
 
+    enum class PlayType { 
+        ONLINE, LOCAL
+    };
+
+    struct GameState {
+        PlayType playType;
+        PlayerColor localPlayTurn;
+    };
+
 	class Board {
         public:
         enum class BoardState {
@@ -26,6 +35,8 @@ namespace RemoteChess {
             , AWAITING_REMOTE_MOVE_FOLLOWTHROUGH
             , WON_GAME
             , LOST_GAME
+            , LOCAL_WHITE_WIN
+            , LOCAL_BLACK_WIN
             , NO_GAME
         };
 
@@ -42,6 +53,8 @@ namespace RemoteChess {
             void t_RemoteMoveReceived();
             void t_Win();
             void t_Lose();
+            void t_WinLocalWhite();
+            void t_WinLocalBlack();
 
             bool CanMakeLocalMove() const;
             bool CanFollowthroughRemoteMove() const;
@@ -53,6 +66,7 @@ namespace RemoteChess {
         FSM fsm;
 		LedMatrix ledMatrix;
         MagneticSensors magneticSensors;
+        Brightness brightness = Brightness::MAX;
 
         bool inCheckmate = false;
 
@@ -71,6 +85,12 @@ namespace RemoteChess {
         RemoteChess::optional<Cell> enPassantCapture;
         bool liftedEnPassant = false;
 
+        // Promotion information
+        bool isPerformingPromotion = false;
+        PromotionType promotionType = PromotionType::NONE;
+        bool liftedPromotion = false;
+        bool placedPromotion = false;
+
         // Game over information
         RemoteChess::optional<Cell> winningKingPos;
         RemoteChess::optional<Cell> losingKingPos;
@@ -82,7 +102,6 @@ namespace RemoteChess {
         RemoteChess::optional<Move> lastLocalMove;
 
         std::array<std::array<RemoteChess::flat_vector<MoveFragment, 32>, 8>, 8> allLegalMoves = {}; // allLegalMoves[file][rank]
-        // RemoteChess::flat_vector<std::string, 32> pieceNames = {};
 
 		public:
 
@@ -91,7 +110,7 @@ namespace RemoteChess {
         void LiftPiece(const Cell& location);
         void PlacePiece(const Cell& location);
 
-        RemoteChess::optional<Move> SubmitCurrentLocalMove();
+        RemoteChess::optional<Move> SubmitCurrentLocalMove(bool isLocalGame = false);
         bool IsPotentialLocalMoveValid() const;
         bool ReceiveRemoteMove(const Move& move, bool inCheckmate = false);
 
@@ -104,15 +123,23 @@ namespace RemoteChess {
         void SetCheck(const Cell& kingPos);
         void ClearCheck();
 
+        bool MustSelectPromotion() const;
+        void SetPromotionType(PromotionType promType);
+        RemoteChess::optional<PromotionType> GetPromotionInProgress() const;
+
         void SetUpcomingCheckmate(const Cell& winningKingPos, const Cell& losingKingPos);
 
         void WinGame();
         void WinGame(const Cell& winningKingPos, const Cell& losingKingPos);
         void LoseGame();
+        void WinLocal(PlayerColor winner, const Cell& winningKingPos, const Cell& losingKingPos);
+        void WinLocal(PlayerColor winner);
+
         void GoToIdle();
+        void SetBrightness(Brightness brightness);
 
         void UpdateLegalMoves();
-        void UpdateFromServer();
+        GameState UpdateFromServer();
 
         BoardState GetCurrentState() const;
 

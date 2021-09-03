@@ -10,7 +10,7 @@
 #include <string.h>
 #include "G8RTOS_Semaphores.h"
 
-#define WEBPAGE "54.226.197.18"
+#define WEBPAGE "34.227.194.176"
 // #define BOARD_ID 202
 #define TO_STR(x) XTO_STR(x)
 #define XTO_STR(x) #x
@@ -37,9 +37,13 @@ typedef enum detail_ServerPlayer {
     LOCAL_MOVE, REMOTE_MOVE
 } ServerPlayer;
 
+typedef enum detail_PlayType {
+    SERVER_ONLINE_PLAY, SERVER_LOCAL_PLAY
+} ServerPlayType;
+
 typedef struct detail_AwaitingMove {
     int8_t status;
-    char algabreic[6];
+    char algabreic[8];
     bool inCheck;
     char algabreicKingPosCheck[3];
     char algabreicKingPosWinner[3];
@@ -47,7 +51,8 @@ typedef struct detail_AwaitingMove {
 
 typedef struct detail_GameState {
     int8_t status;
-    char algabreicLastMove[6];
+    ServerPlayType playType;
+    char algabreicLastMove[8];
     bool hasLastMove;
     ServerPlayer activePlayer;
     bool inCheck;
@@ -64,10 +69,11 @@ typedef struct detail_GameInvite {
 } ServerGameInvite;
 
 uint8_t chessServer_init(uint32_t conntype);
-int8_t chessServer_makeMove(char* move);
+int8_t chessServer_makeMove(char *move, bool localP2);
 int8_t chessServer_getLegalMoves(char* response);
 int8_t chessServer_newGame(char* response);
 int8_t chessServer_newGameCPU(char *response);
+int8_t chessServer_newGameLocal();
 int8_t chessServer_joinGame(char* response);
 int8_t chessServer_resign();
 ServerGameState chessServer_getGameState();

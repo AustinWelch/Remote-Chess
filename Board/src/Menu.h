@@ -25,11 +25,9 @@ namespace RemoteChess {
 
         uint8_t DisplayMenuLeft(LCD_CharacterDisplay &LCD, std::array<const char*, 4> selections, uint8_t startLine, uint8_t selectionSize);
         uint8_t DisplayMenuLeftRight(LCD_CharacterDisplay &LCD, std::array<const char*, 8> selections, uint8_t startLine, uint8_t selectionSize);
-
         int8_t DisplayScrollingMenu(LCD_CharacterDisplay &LCD, const flat_vector<const char*, 10>& scrollItems, uint8_t listSize, const char* secondarySelection);
 
         int8_t KeyboardInputNumber(LCD_CharacterDisplay &LCD, const char* firstString, char* returnString);
-
 
         uint16_t getButtonInput();
         uint16_t setButtonInput(uint16_t newVal);

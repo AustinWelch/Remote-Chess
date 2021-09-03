@@ -22,7 +22,7 @@ void Board::LiftPiece(const Cell& cell) {
 	} else if (fsm.GetState() == BoardState::NO_GAME) {
 		invalidLifts.insert(cell);
 	} else if (fsm.CanMakeLocalMove()) {
-		if (cell == placedPiece) {
+		if (cell == placedPiece && !isPerformingPromotion) {
 			// Check for if lifting up a piece that was previously legally placed before confirming move with button
 			placedPiece = nullptr;
 
@@ -50,6 +50,12 @@ void Board::LiftPiece(const Cell& cell) {
 					invalidLifts.insert(cell);
 			} else if (enPassantCapture && cell == enPassantCapture) {
 				liftedEnPassant = true;
+			} else if (isPerformingPromotion) {
+				// Check if applying promotion
+				if (cell == placedPiece)
+					liftedPromotion = true;
+				else
+					invalidLifts.insert(cell);
 			} else {
 				// We are not castling
 				// Check if we are attacking a piece
@@ -69,7 +75,7 @@ void Board::LiftPiece(const Cell& cell) {
 		// Check if making remote move
 		if (cell == lastRemoteMove->from) {
 			liftedPiece = cell;
- 		} else if (cell == lastRemoteMove->to && lastRemoteMove->isAttackingMove) {
+ 		} else if (cell == lastRemoteMove->to && lastRemoteMove->isAttackingMove && !isPerformingPromotion) {
 			attackedPiece = cell;
 		} else if (liftedPiece && placedPiece) {
 			if (currentRookCastleMove) {
@@ -84,6 +90,12 @@ void Board::LiftPiece(const Cell& cell) {
 				if (cell == *enPassantCapture) {
 					liftedEnPassant = true;
 					CompleteRemoteMoveFollowthrough();
+				} else {
+					invalidLifts.insert(cell);
+				}
+			} else if (isPerformingPromotion) {
+				if (cell == placedPiece) {
+					liftedPromotion = true;
 				} else {
 					invalidLifts.insert(cell);
 				}
@@ -114,7 +126,7 @@ void Board::PlacePiece(const Cell& cell) {
 			if (cell == liftedPiece) {
 				// Placing a lifted piece back where it started
 				liftedPiece = nullptr;
-			} else if (!currentRookCastleMove && !enPassantCapture) {
+			} else if (!currentRookCastleMove && !enPassantCapture && !isPerformingPromotion) {
 				// We are not castling, check legal moves
 				RemoteChess::optional<Move> legalMove = GetLegalMove(*liftedPiece, cell);
 
@@ -126,6 +138,8 @@ void Board::PlacePiece(const Cell& cell) {
 						currentRookCastleMove = Move::GetRookCastleMove(*legalMove);
 					} else if (legalMove->moveType == MoveType::EN_PASSANT) {
 						enPassantCapture = lastRemoteMove->to;
+					} else if (legalMove->moveType == MoveType::PROMOTION) {
+						isPerformingPromotion = true;
 					}
 				} else {
 					// Placed an illegal move for the lifted piece
@@ -149,16 +163,31 @@ void Board::PlacePiece(const Cell& cell) {
 				} else {
 					invalidPlacements.insert(cell);
 				}
+			} else if (isPerformingPromotion) {
+				if (liftedPromotion && cell == placedPiece) {
+					placedPromotion = true;
+				} else {
+					invalidPlacements.insert(cell);
+				}
 			}
 		} else if (fsm.CanFollowthroughRemoteMove()) {
 			if (cell == lastRemoteMove->to) {
-				// Check for if we are attacking a piece
-				if (!lastRemoteMove->isAttackingMove) {
+				if (liftedPiece && placedPiece && isPerformingPromotion) {
+					if (liftedPromotion) {
+						placedPromotion = true;
+						CompleteRemoteMoveFollowthrough();
+					} else {
+						invalidPlacements.insert(cell);
+					}
+				} else if (!lastRemoteMove->isAttackingMove) {
+					// Check for if we are attacking a piece
 					if (liftedPiece) {
 						placedPiece = cell;
 
-						if (!currentRookCastleMove && !enPassantCapture)
+						if (!currentRookCastleMove && !enPassantCapture && lastRemoteMove->moveType != MoveType::PROMOTION)
 							CompleteRemoteMoveFollowthrough();
+						else if (lastRemoteMove->moveType == MoveType::PROMOTION)
+							isPerformingPromotion = true;
 					} else {
 						invalidPlacements.insert(cell);
 					}
@@ -166,8 +195,10 @@ void Board::PlacePiece(const Cell& cell) {
 					if (liftedPiece){
 						placedPiece = cell;
 
-						if (!currentRookCastleMove && !enPassantCapture)
+						if (!currentRookCastleMove && !enPassantCapture && lastRemoteMove->moveType != MoveType::PROMOTION)
 							CompleteRemoteMoveFollowthrough();
+						else if (lastRemoteMove->moveType == MoveType::PROMOTION)
+							isPerformingPromotion = true;
 					} else {
 						attackedPiece = nullptr;
 					}
@@ -176,17 +207,19 @@ void Board::PlacePiece(const Cell& cell) {
 				}
 			} else if (cell == lastRemoteMove->from) {
 				liftedPiece = nullptr;
-			} else if (liftedPiece && placedPiece && currentRookCastleMove) {
-				// Check for castling
-				if (cell == currentRookCastleMove->to) {
-					// Completed castle, now complete move
-					placedCastle = true;
-					CompleteRemoteMoveFollowthrough();
-				} else if (cell == currentRookCastleMove->from) {
-					// Placed castling piece back down
-					liftedCastle = false;
-				} else {
-					invalidPlacements.insert(cell);
+			} else if (liftedPiece && placedPiece) {
+				if (currentRookCastleMove) {
+					// Check for castling
+					if (cell == currentRookCastleMove->to) {
+						// Completed castle, now complete move
+						placedCastle = true;
+						CompleteRemoteMoveFollowthrough();
+					} else if (cell == currentRookCastleMove->from) {
+						// Placed castling piece back down
+						liftedCastle = false;
+					} else {
+						invalidPlacements.insert(cell);
+					}
 				}
 			} else {
 				invalidPlacements.insert(cell);
@@ -220,6 +253,22 @@ void Board::SetCheck(const Cell& kingPos) {
 
 void Board::ClearCheck() {
 	checkKingPos = nullptr;
+}
+
+bool Board::MustSelectPromotion() const {
+	return isPerformingPromotion && promotionType == PromotionType::NONE;
+}
+
+void Board::SetPromotionType(PromotionType promType) {
+	promotionType = promType;
+}
+
+RemoteChess::optional<PromotionType> Board::GetPromotionInProgress() const {
+	if (isPerformingPromotion && promotionType != PromotionType::NONE && !(liftedPromotion && placedPromotion)) {
+		return promotionType;
+	} else {
+		return nullptr;
+	}
 }
 
 void Board::UpdateLegalMoves() {
@@ -268,6 +317,15 @@ void Board::UpdateLegalMoves() {
 					foundLegalMove.moveType = MoveType::QUEENSIDE_CASTLE;
 				else if (special == 'E')
 					foundLegalMove.moveType = MoveType::EN_PASSANT;
+				else if (special == 'P') {
+					foundLegalMove.moveType = MoveType::PROMOTION;
+
+				// Check if this is both a promotion and an attack
+					if (*(strpt + 4) == 'A') {
+						foundLegalMove.isAttackingMove = true;
+						strpt++;
+					}
+				}
 
 				strpt++;
 			}
@@ -290,7 +348,7 @@ void Board::UpdateLegalMoves() {
 	G8RTOS_ReleaseSemaphore(&boardSem);
 }
 
-void Board::UpdateFromServer() {
+GameState Board::UpdateFromServer() {
 	G8RTOS_AcquireSemaphore(&boardSem);
 
 	ServerGameState gameState = chessServer_getGameState();
@@ -321,7 +379,7 @@ void Board::UpdateFromServer() {
 		if (gameState.hasLastMove)
 			lastMove = Move(gameState.algabreicLastMove);
 
-		if (gameState.activePlayer == LOCAL_MOVE) { 
+		if (gameState.activePlayer == LOCAL_MOVE || gameState.playType == SERVER_LOCAL_PLAY) { 
 			lastRemoteMove = lastMove;
 
 			if (lastRemoteMove.HasValue()) {
@@ -342,6 +400,8 @@ void Board::UpdateFromServer() {
 							enPassantCapture->rank++;
 						else if (enPassantCapture->rank == 5)
 							enPassantCapture->rank--;
+					} else if (lastRemoteMove->moveType == MoveType::PROMOTION) {
+						promotionType = lastRemoteMove->promotionType;
 					}
 				}
 			} else {
@@ -358,7 +418,11 @@ void Board::UpdateFromServer() {
 			ClearCheck();
 		}
 
-		if (gameState.status == SERVER_LOST_GAME) {
+		if (gameState.inCheckmate && gameState.playType == SERVER_LOCAL_PLAY) {
+			PlayerColor winner = gameState.activePlayer == LOCAL_MOVE ? PlayerColor::BLACK : PlayerColor::WHITE;
+
+			WinLocal(winner, Cell(gameState.algabreicKingPosWinner), Cell(gameState.algabreicKingPosCheck));
+		} else if (gameState.status == SERVER_LOST_GAME) {
 			SetUpcomingCheckmate(Cell(gameState.algabreicKingPosWinner), Cell(gameState.algabreicKingPosCheck));
 
 			if (fsm.GetState() == BoardState::AWAITING_LOCAL_MOVE) {
@@ -378,13 +442,18 @@ void Board::UpdateFromServer() {
 	if (!inCheckmate) {
 		UpdateLegalMoves();
 	}
+
+	return {
+		  gameState.playType == SERVER_ONLINE_PLAY ? PlayType::ONLINE : PlayType::LOCAL
+		, gameState.activePlayer == LOCAL_MOVE ? PlayerColor::WHITE : PlayerColor::BLACK
+	};
 }
 
 bool Board::CanLiftPiece(const Cell& cell) const {
 	return true;
 }
 
-RemoteChess::optional<Move> Board::SubmitCurrentLocalMove() {
+RemoteChess::optional<Move> Board::SubmitCurrentLocalMove(bool isLocalGame) {
 	G8RTOS_AcquireSemaphore(&boardSem);
 
 	if (!IsPotentialLocalMoveValid()) {
@@ -392,12 +461,26 @@ RemoteChess::optional<Move> Board::SubmitCurrentLocalMove() {
 		return nullptr;
 	}
 
-	lastLocalMove = Move(liftedPiece.Value(), placedPiece.Value());
-	lastRemoteMove = nullptr;
+	Move localMove = Move(liftedPiece.Value(), placedPiece.Value());
+
+	if (isPerformingPromotion) {
+		localMove.moveType = MoveType::PROMOTION;
+		localMove.promotionType = promotionType;
+	}
+
+	if (isLocalGame) {
+		lastLocalMove = nullptr;
+		lastRemoteMove = localMove;
+	} else {
+		lastLocalMove = localMove;
+		lastRemoteMove = nullptr;
+	}
 
 	liftedPiece = nullptr;
 	placedPiece = nullptr;
 	ClearCheck();
+
+	attackedPiece = nullptr;
 
 	currentRookCastleMove = nullptr;
 	liftedCastle = false;
@@ -406,11 +489,17 @@ RemoteChess::optional<Move> Board::SubmitCurrentLocalMove() {
 	enPassantCapture = nullptr;
 	liftedEnPassant = false;
 
-	fsm.t_LocalMoveSubmitted();
+	isPerformingPromotion = false;
+	promotionType = PromotionType::NONE;
+	liftedPromotion = false;
+	placedPromotion = false;
+
+	if (!isLocalGame)
+		fsm.t_LocalMoveSubmitted();
 
 	G8RTOS_ReleaseSemaphore(&boardSem);
 
-	return lastLocalMove;
+	return localMove;
 }
 
 bool Board::IsPotentialLocalMoveValid() const {
@@ -418,7 +507,8 @@ bool Board::IsPotentialLocalMoveValid() const {
 			&& invalidLifts.is_empty() && invalidPlacements.is_empty()
 			&& liftedPiece.HasValue() && placedPiece.HasValue()
 			&& (!currentRookCastleMove || (liftedCastle && placedCastle))
-			&& (!enPassantCapture || liftedEnPassant);
+			&& (!enPassantCapture || liftedEnPassant)
+			&& (!isPerformingPromotion || (promotionType != PromotionType::NONE && liftedPromotion && placedPromotion));
 }
 
 void Board::CompleteRemoteMoveFollowthrough() {
@@ -435,6 +525,11 @@ void Board::CompleteRemoteMoveFollowthrough() {
 
 	enPassantCapture = nullptr;
 	liftedEnPassant = false;
+
+	isPerformingPromotion = false;
+	promotionType = PromotionType::NONE;
+	liftedPromotion = false;
+	placedPromotion = false;
 
 	if (!inCheckmate)
 		fsm.t_RemoteMoveFollowthroughed();
@@ -460,11 +555,19 @@ bool Board::ReceiveRemoteMove(const Move& move, bool inCheckmate) {
 	enPassantCapture = nullptr;
 	liftedEnPassant = false;
 
+	isPerformingPromotion = false;
+	promotionType = PromotionType::NONE;
+	liftedPromotion = false;
+	placedPromotion = false;
+
 	if (move.moveType == MoveType::KINGSIDE_CASTLE || move.moveType == MoveType::QUEENSIDE_CASTLE)
 		currentRookCastleMove = Move::GetRookCastleMove(move);
 	else if (move.moveType == MoveType::EN_PASSANT)
 		enPassantCapture = lastLocalMove->to;
-
+	else if (move.moveType == MoveType::PROMOTION) {
+		// isPerformingPromotion = true;
+		promotionType = move.promotionType;
+	}
 
 	lastLocalMove = nullptr;
 
@@ -497,8 +600,24 @@ void Board::LoseGame() {
 	fsm.t_Lose();
 }
 
+void Board::WinLocal(PlayerColor winner, const Cell& winningKingPos, const Cell& losingKingPos) {
+	this->winningKingPos = winningKingPos;
+	this->losingKingPos = losingKingPos;
+
+	if (winner == PlayerColor::WHITE)
+		fsm.t_WinLocalWhite();
+	else
+		fsm.t_WinLocalBlack();
+}
+
 void Board::GoToIdle() {
 	fsm = FSM(BoardState::NO_GAME);
+}
+
+void Board::SetBrightness(Brightness brightness) {
+	G8RTOS_AcquireSemaphore(&boardSem);
+	this->brightness = brightness;
+	G8RTOS_ReleaseSemaphore(&boardSem);
 }
 
 RemoteChess::optional<Move> Board::GetLastMove() const {
@@ -534,7 +653,9 @@ void Board::UpdateLedMatrix() {
 
 			if (liftedPiece) {
 				if (placedPiece) {
-					ledMatrix.SetCell(*liftedPiece, Colors::GREEN);
+					if (!isPerformingPromotion)
+						ledMatrix.SetCell(*liftedPiece, Colors::GREEN);
+
 					ledMatrix.SetCell(*placedPiece, Colors::GREEN);
 
 					if (currentRookCastleMove) {
@@ -551,6 +672,18 @@ void Board::UpdateLedMatrix() {
 					} else if (enPassantCapture) {
 						if (!liftedEnPassant)
 							ledMatrix.SetCell(*enPassantCapture, Colors::ORANGE);
+					} else if (MustSelectPromotion()) {
+						ledMatrix.SetCell(*liftedPiece, Colors::YELLOW);
+						ledMatrix.SetCell(*placedPiece, Colors::YELLOW);
+					} else if (isPerformingPromotion) {
+						if (liftedPromotion && placedPromotion) {
+							ledMatrix.SetCell(*liftedPiece, Colors::GREEN);
+							ledMatrix.SetCell(*placedPiece, Colors::GREEN);
+						} else if (!liftedPromotion) {
+							ledMatrix.SetCell(*placedPiece, Colors::YELLOW);
+						} else if (!placedPromotion) {
+							ledMatrix.SetCell(*placedPiece, Colors::CYAN);
+						}
 					}
 				} else {
 					if (attackedPiece) {
@@ -575,7 +708,12 @@ void Board::UpdateLedMatrix() {
 
 			break;
 		case BoardState::AWAITING_REMOTE_MOVE_FOLLOWTHROUGH:
-			if (!lastRemoteMove->isAttackingMove) {
+			if (GetPromotionInProgress().HasValue()) {
+				if (!liftedPromotion)
+					ledMatrix.SetCell(*placedPiece, Colors::YELLOW);
+				else if (!placedPromotion)
+					ledMatrix.SetCell(*placedPiece, Colors::CYAN);
+			} else if (!lastRemoteMove->isAttackingMove) {
 				if (!placedPiece)
 					ledMatrix.SetCell(lastRemoteMove->from, Colors::YELLOW);
 
@@ -630,6 +768,26 @@ void Board::UpdateLedMatrix() {
 			}
 
 			break;
+		case BoardState::LOCAL_WHITE_WIN:
+			ledMatrix.DrawSplitChecker(Colors::LIGHT_GREEN, Colors::LIGHT_ORANGE);
+
+			if (winningKingPos)
+				ledMatrix.SetCell(*winningKingPos, Colors::GREEN);
+
+			if (losingKingPos)
+				ledMatrix.SetCell(*losingKingPos, Colors::RED);
+
+				break;
+		case BoardState::LOCAL_BLACK_WIN:
+			ledMatrix.DrawSplitChecker(Colors::LIGHT_ORANGE, Colors::LIGHT_GREEN);
+
+			if (winningKingPos)
+				ledMatrix.SetCell(*winningKingPos, Colors::GREEN);
+
+			if (losingKingPos)
+				ledMatrix.SetCell(*losingKingPos, Colors::RED);
+
+				break;
 		default:
 			break;
 	}
@@ -644,6 +802,7 @@ void Board::UpdateLedMatrix() {
 		ledMatrix.SetCell(cell, errorColor);
 	}
 
+	ledMatrix.Dim(brightness);
 	ledMatrix.Refresh();
 
 	G8RTOS_ReleaseSemaphore(&boardSem);
@@ -689,6 +848,14 @@ void Board::FSM::t_Win() {
 
 void Board::FSM::t_Lose() {
 	curState = BoardState::LOST_GAME;
+}
+
+void Board::FSM::t_WinLocalWhite() {
+	curState = BoardState::LOCAL_WHITE_WIN;
+}
+
+void Board::FSM::t_WinLocalBlack() {
+	curState = BoardState::LOCAL_BLACK_WIN;
 }
 
 bool Board::FSM::CanMakeLocalMove() const {

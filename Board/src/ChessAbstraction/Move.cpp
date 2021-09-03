@@ -2,7 +2,7 @@
 
 using namespace RemoteChess;
 
-Move::Move(const char algabreic[6]) : from(Cell(algabreic)), to(Cell(algabreic + 2)), isAttackingMove(false), moveType(MoveType::NORMAL) {
+Move::Move(const char algabreic[8]) : from(Cell(algabreic)), to(Cell(algabreic + 2)), isAttackingMove(false), moveType(MoveType::NORMAL) {
     char special = *(algabreic + 4);
 
     if (special == 'A')
@@ -13,10 +13,43 @@ Move::Move(const char algabreic[6]) : from(Cell(algabreic)), to(Cell(algabreic +
         moveType = MoveType::KINGSIDE_CASTLE;
     else if (special == 'E')
         moveType = MoveType::EN_PASSANT;
+    else if (special == 'P') {
+        moveType = MoveType::PROMOTION;
+
+        char promType = *(algabreic + 5);
+
+        if (promType == 'Q')
+            promotionType = PromotionType::QUEEN;
+        else if (promType == 'N')
+            promotionType = PromotionType::KNIGHT;
+        else if (promType == 'R')
+            promotionType = PromotionType::ROOK;
+        else if (promType == 'B')
+            promotionType = PromotionType::BISHOP;
+
+        if (*(algabreic + 6) == 'A')
+            isAttackingMove = true;
+    }
 }
 
-std::array<char, 5> Move::GetAlgabreic() const {
-    return { from.file + 0x61, from.rank + 0x31, to.file + 0x61, to.rank + 0x31, '\0' };
+std::array<char, 6> Move::GetAlgabreic() const {
+    if (moveType != MoveType::PROMOTION)
+        return { from.file + 0x61, from.rank + 0x31, to.file + 0x61, to.rank + 0x31, '\0', '\0' };
+    else {
+        char promType;
+
+        if (promotionType == PromotionType::QUEEN)
+            promType = 'q';
+        else if (promotionType == PromotionType::KNIGHT)
+            promType = 'n';
+        else if (promotionType == PromotionType::ROOK)
+            promType = 'r';
+        else if (promotionType == PromotionType::BISHOP)
+            promType = 'b';
+
+        return { from.file + 0x61, from.rank + 0x31, to.file + 0x61, to.rank + 0x31, promType, '\0' };
+    }
+
 }
 
 Move Move::GetRookCastleMove(const Move& kingMove) {
