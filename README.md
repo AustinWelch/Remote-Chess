@@ -83,10 +83,11 @@ This project was created to compete in the IoT Design Competition 2021 hosted by
 We wanted to thank them and their sponsors for making this competition possible!
 
 Sponsors:
-- Warren B. Nelms Institute for the Connected World
+- Warren B. Nelms Institute for the Connected World at the University of Florida
 - Texas Instruments
 - Microsoft
 
 ![End of a local play game](/Images/local_endgame.jpg)
 
 #### Designed by Dylan Ferris and Austin Welch
+
